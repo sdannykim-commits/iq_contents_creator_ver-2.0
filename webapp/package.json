@@ -1,0 +1,21 @@
+{
+  "name": "iq-spark-studio",
+  "version": "2.0.0",
+  "description": "IQ Spark Studio — Daily IQ Challenge Content Generator with MP4 Export",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "html2canvas": "^1.4.1",
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5",
+    "vite-plugin-ejs": "^2.0.0"
+  }
+}

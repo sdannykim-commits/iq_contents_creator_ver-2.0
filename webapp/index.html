@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IQ Spark Studio · Daily IQ Challenge Content Generator</title>
+  <meta name="description" content="Generate daily IQ challenge Shorts (9:16) based on real IQ-test questions. IQ Spark brand studio.">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&display=swap" rel="stylesheet">
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <!-- Screen capture -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+
+  <!-- 1. Brand Header Component -->
+  <%- include('./src/components/header.html') %>
+
+  <!-- 2. System Settings Component -->
+  <%- include('./src/components/settings.html') %>
+
+  <!-- 3. Main Workspace Grid -->
+  <main id="app-main">
+    <!-- Left Column: Controls (Attached Images, Hooks, Q1/Q2 Manual Overrides) -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      <%- include('./src/components/control.html') %>
+    </div>
+
+    <!-- Right Column: Previews (9:16 Card, Playback controls, BGM mixers, progress status) -->
+    <%- include('./src/components/preview.html') %>
+  </main>
+
+  <p class="hint">
+    💡 <b>Workflow</b> &nbsp;①&nbsp; <b>Step 1</b> upload your music &amp; set the start point (auto-fills 60s)
+    &nbsp;②&nbsp; <b>Step 2</b> click <b>Generate puzzles</b> (Claude Opus 4.8) &nbsp;③&nbsp; <b>Step 3–4</b>
+    optionally replace a question with your own image (auto-extracted) or a typed equation &nbsp;④&nbsp;
+    <b>Step 5</b> pick a hook headline &nbsp;⑤&nbsp; hit <b>“Render MP4”</b> for the finished 60-second video
+    (or Auto-play + screen-record).<br>
+    Timing per frame: Intro 2s · Q1 <b>24s</b> · Answer 1 <b>6s</b> · Q2 <b>24s</b> · Comment 2s · CTA 2s =
+    exactly 60s · change the date for <b>fresh questions &amp; CTA every day</b>.
+  </p>
+
+  <!-- Scripts (Vite module entry points) -->
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

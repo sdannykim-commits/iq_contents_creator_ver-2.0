@@ -1,0 +1,67 @@
+# === IQ Contents Creator ver-2.0 ===
+# 버전 관리 제외 대상
+
+# 환경 변수 (민감 정보)
+.env
+.env.local
+.env.*.local
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# OS 파일
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/settings.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# 임시 파일
+*.tmp
+*.temp
+*.log
+*.cache
+
+# 빌드 결과물
+*.zip
+*.tar.gz
+
+# 렌더링 산출물 (앱이 자동 저장하는 MP4)
+webapp/output/
+
+# Claude Code 로컬 상태
+.claude/
+
+# 미디어 원본 (용량 큰 파일)
+reports/*/input/*.mp3
+reports/*/input/*.wav
+reports/*/*.mp4
+
+# FFmpeg 임시
+*.ffconcat
+*.mlt
+
+# 민감 정보 백업
+*.bak
+*.backup
+secrets/
+credentials/

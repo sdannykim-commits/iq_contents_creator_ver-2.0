@@ -1,0 +1,295 @@
+import html2canvas from 'html2canvas';
+import JSZip from 'jszip';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile } from '@ffmpeg/util';
+
+// Captures all 6 frames as PNG blobs. Shows exactly one frame at a time (so frames don't
+// stack in the capture) with its fade-in animation frozen (so html2canvas grabs it at full
+// opacity, not mid-fade) on an opaque dark background. Restores the viewed frame afterwards.
+async function captureFrameBlobs(elements, state) {
+  const originalFrame = state.currentFrame || 1;
+  const blobs = [];
+  for (let i = 1; i <= 6; i++) {
+    for (let k = 1; k <= 6; k++) {
+      const fk = document.getElementById(`frame-${k}`);
+      fk.hidden = k !== i;
+      fk.style.animation = 'none';
+    }
+    const canvas = await html2canvas(elements.frameCanvasCard, { scale: 3, useCORS: true, backgroundColor: '#050816' });
+    blobs.push(await new Promise((resolve) => canvas.toBlob(resolve, 'image/png')));
+  }
+  for (let k = 1; k <= 6; k++) {
+    const fk = document.getElementById(`frame-${k}`);
+    fk.hidden = k !== originalFrame;
+    fk.style.animation = '';
+  }
+  return blobs;
+}
+
+// Captures current single frame and downloads as PNG
+export async function saveCurrentFramePng(state, elements) {
+  try {
+    const canvas = await html2canvas(elements.frameCanvasCard, { scale: 3, useCORS: true, backgroundColor: '#050816' });
+    const url = canvas.toDataURL('image/png');
+    const today = elements.datePick.value || new Date().toISOString().split('T')[0];
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `iqspark_${today}_frame_${state.currentFrame}.png`;
+    a.click();
+  } catch (err) {
+    alert("PNG capture failed: " + err.message);
+  }
+}
+
+// Compiles portrait 1080x1920 MP4 Video using ffmpeg.wasm
+export async function renderVideo(state, elements, updateProgress) {
+  elements.btnRenderMp4.disabled = true;
+  elements.progressSection.hidden = false;
+  elements.progressBar.style.width = '0%';
+  updateProgress(10, 'Initializing FFmpeg.wasm...');
+  
+  try {
+    if (!state.ffmpeg) {
+      state.ffmpeg = new FFmpeg();
+      await state.ffmpeg.load({
+        coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
+        wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm'
+      });
+    }
+
+    updateProgress(35, 'Capturing all 6 frames (html2canvas)...');
+
+    const canvasBlobs = await captureFrameBlobs(elements, state);
+    
+    // Write image frames to virtual file system
+    for (let i = 0; i < 6; i++) {
+      await state.ffmpeg.writeFile(`frame_${i+1}.png`, await fetchFile(canvasBlobs[i]));
+    }
+    
+    updateProgress(60, 'Processing BGM Audio...');
+    let hasAudio = false;
+    if (state.bgmFile) {
+      try {
+        await state.audioProcessor.decodeFile(state.bgmFile);
+        const audioBuffer = await state.audioProcessor.create60sClipBuffer(
+          state.audioSettings.startPoint,
+          state.audioSettings.volume,
+          state.audioSettings.fadeIn,
+          state.audioSettings.fadeOut
+        );
+        
+        const wavBlob = audioBufferToWav(audioBuffer);
+        await state.ffmpeg.writeFile('bgm.wav', await fetchFile(wavBlob));
+        hasAudio = true;
+      } catch (err) {
+        console.error("Audio conversion failed:", err);
+      }
+    }
+    
+    updateProgress(80, 'Compiling 6-frame slides (FFmpeg)...');
+    
+    // Slides timing concat
+    const slidesTxt = `
+file frame_1.png
+duration ${state.timings.intro}
+file frame_2.png
+duration ${state.timings.p1}
+file frame_3.png
+duration ${state.timings.a1}
+file frame_4.png
+duration ${state.timings.p2}
+file frame_5.png
+duration ${state.timings.comm}
+file frame_6.png
+duration ${state.timings.cta}
+file frame_6.png
+`.trim();
+    
+    await state.ffmpeg.writeFile('slides.txt', slidesTxt);
+    
+    // Render video
+    const audioArgs = hasAudio ? ['-i', 'bgm.wav', '-c:a', 'aac', '-shortest'] : [];
+    await state.ffmpeg.exec([
+      '-f', 'concat', '-safe', '0', '-i', 'slides.txt',
+      ...audioArgs,
+      '-vsync', 'vfr', '-pix_fmt', 'yuv420p', '-c:v', 'libx264',
+      '-vf', 'scale=1080:1920', '-r', '30', 'portrait.mp4'
+    ]);
+    
+    const videoData = await state.ffmpeg.readFile('portrait.mp4');
+    const videoBlob = new Blob([videoData.buffer], { type: 'video/mp4' });
+    const url = URL.createObjectURL(videoBlob);
+
+    const today = elements.datePick.value || new Date().toISOString().split('T')[0];
+    const subdir = today.replace(/-/g, ''); // yyyymmdd dated folder
+    const filename = `iqspark_${today}_shorts.mp4`;
+
+    // Under `npm run dev`, drop the file straight into webapp/output/<yyyymmdd>/ (no download
+    // dialog) and save Q2's answer + explanation beside it (Q2 goes in the pinned comment).
+    // In a production build (no dev server / fs) fall back to a normal browser download.
+    let savedTo = null;
+    if (import.meta.env.DEV) {
+      try {
+        updateProgress(95, `Saving to output/${subdir}/ …`);
+        const resp = await fetch('/api/save-render', {
+          method: 'POST',
+          headers: { 'content-type': 'application/octet-stream', 'x-filename': filename, 'x-subdir': subdir },
+          body: videoBlob
+        });
+        const j = await resp.json();
+        if (j.ok) savedTo = j.path;
+        else throw new Error(j.error || 'unknown error');
+
+        // Q2 answer + explanation for the pinned comment.
+        try {
+          const q2 = state.customManager.getQuestion('q2', state.dailyPuzzle.q2);
+          await fetch('/api/save-render', {
+            method: 'POST',
+            headers: { 'content-type': 'text/plain; charset=utf-8', 'x-filename': 'q2_pinned_comment.txt', 'x-subdir': subdir },
+            body: buildQ2CommentText(today, q2)
+          });
+        } catch (e2) {
+          console.warn('Q2 pinned-comment file save failed:', e2.message);
+        }
+      } catch (e) {
+        console.warn('Auto-save to output/ failed, falling back to download:', e.message);
+      }
+    }
+
+    if (!savedTo) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+    }
+
+    updateProgress(100, savedTo
+      ? `Saved to ${savedTo} 🎬`
+      : 'Video Compiled and Downloaded Successfully! 🎬');
+
+    elements.exportStatus.hidden = false;
+    elements.exportFiles.innerHTML = `
+      <div class="export-file-item">
+        <span class="export-file-name">${savedTo || filename}</span>
+        <span class="export-file-size">${(videoBlob.size / 1024 / 1024).toFixed(2)} MB</span>
+        <button class="export-file-btn" onclick="window.open('${url}')">Save Video</button>
+      </div>
+    `;
+  } catch (err) {
+    console.error(err);
+    updateProgress(0, `Render failed: ${err.message}`);
+  } finally {
+    elements.btnRenderMp4.disabled = false;
+  }
+}
+
+// Packages all 6 frames + metadata text file into a ZIP archive
+export async function exportAllZip(state, elements) {
+  const zip = new JSZip();
+  const today = elements.datePick.value || new Date().toISOString().split('T')[0];
+
+  const blobs = await captureFrameBlobs(elements, state);
+  blobs.forEach((blob, idx) => {
+    zip.file(`IQSpark_Desktop/${today}/iqspark_${today}_frame_${idx + 1}.png`, blob);
+  });
+
+  const metaTxt = `
+===================================================
+IQ Spark Studio v2.0 - Platform Metadata
+Date: ${today}
+===================================================
+
+[Scroll-stopping Hook (Frame 1)]
+${state.hookText}
+
+[Description & Caption (All platforms)]
+${state.captionText}
+
+---------------------------------------------------
+Save all frames in "Downloads/IQSpark_Desktop/${today}/"
+Assemble PNG frames + music track inside your video editor.
+===================================================
+`.trim();
+
+  zip.file(`IQSpark_Desktop/${today}/metadata_copy.txt`, metaTxt);
+  
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(zipBlob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `iqspark_desktop_export_${today}.zip`;
+  a.click();
+}
+
+// Renders Q2's puzzle values as a one-line string for the pinned-comment note.
+function puzzleToText(q) {
+  if (q.equation) return q.equation.replace(/\n/g, '  |  ');
+  if (q.sequenceData && q.sequenceData.length) return q.sequenceData.join(', ');
+  if (q.matrixData && q.matrixData.length) {
+    const m = q.matrixData;
+    return [m.slice(0, 3), m.slice(3, 6), m.slice(6, 9)].map(r => r.join(' ')).join('  /  ');
+  }
+  if (q.analogyData && q.analogyData.length) return q.analogyData.join(' ');
+  return '';
+}
+
+// Builds the pinned-comment text file for Question 2 (answer + explanation only).
+function buildQ2CommentText(today, q2) {
+  const opts = (q2.options || []).join('  /  ');
+  return [
+    `IQ SPARK — Daily IQ Challenge · ${today}`,
+    `Question 2 / 2 (pinned comment)`,
+    ``,
+    `Puzzle:  ${puzzleToText(q2)}`,
+    opts ? `Options: ${opts}` : ``,
+    ``,
+    `✅ Answer: ${q2.answer}`,
+    `💡 Explanation: ${q2.explanation || ''}`,
+    ``
+  ].filter(l => l !== null && l !== undefined).join('\n');
+}
+
+// Convert AudioBuffer to WAV format helper
+function audioBufferToWav(buffer) {
+  const numOfChan = buffer.numberOfChannels,
+        length = buffer.length * numOfChan * 2 + 44,
+        bufferArr = new ArrayBuffer(length),
+        view = new DataView(bufferArr),
+        channels = [], sampleRate = buffer.sampleRate;
+        
+  let offset = 0, pos = 0;
+
+  function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+  function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+
+  setUint32(0x46464952); // "RIFF"
+  setUint32(length - 8);
+  setUint32(0x45564157); // "WAVE"
+  setUint32(0x20746d66); // "fmt "
+  setUint32(16);
+  setUint16(1);
+  setUint16(numOfChan);
+  setUint32(sampleRate);
+  setUint32(sampleRate * numOfChan * 2);
+  setUint16(numOfChan * 2);
+  setUint16(16);
+  setUint32(0x61746164); // "data"
+  setUint32(length - pos - 4);
+
+  for (let i = 0; i < numOfChan; i++) {
+    channels.push(buffer.getChannelData(i));
+  }
+
+  while (pos < length) {
+    for (let i = 0; i < numOfChan; i++) {
+      let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+      sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+      view.setInt16(pos, sample, true);
+      pos += 2;
+    }
+    offset++;
+  }
+  return new Blob([bufferArr], { type: 'audio/wav' });
+}

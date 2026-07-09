@@ -1,0 +1,225 @@
+<!-- RIGHT PANEL: Preview Stage -->
+<section id="preview-panel">
+  
+  <div class="preview-container" id="preview-container">
+    
+    <!-- Preview Stage (9:16 card) -->
+    <main class="stage-wrap" id="stage-wrap">
+      
+      <div class="frame-placeholder" id="frame-placeholder">
+        <span class="placeholder-icon">🧩</span>
+        <p>Upload puzzles and click<br />"Generate Frames" to preview</p>
+      </div>
+
+      <!-- Card Container -->
+      <div class="card" id="frame-canvas" style="display: none;">
+        
+        <!-- Frame 1: Intro -->
+        <div class="frame-content fade-in" id="frame-1" data-frame="1" hidden>
+          <div class="hook" id="hook-display-intro">Only 2% get BOTH right 🧠</div>
+          <div class="q-meta">
+            <span class="q-index">DAILY IQ</span>
+            <span class="q-badge custom">CHALLENGE</span>
+          </div>
+          <div class="intro-main">
+            <div class="fc-logo" style="margin-bottom: 12px; margin-top: 24px;">🧠</div>
+            <div class="intro-sub" style="font-size: 14px; font-weight: 700; line-height: 1.5; color: var(--text-dim);">
+              Two real Mensa puzzles ahead.<br/>Can you beat the average score?
+            </div>
+          </div>
+          <div class="card-foot">
+            <b>IQ SPARK</b> <span class="dot"></span> iqspark.digital
+          </div>
+        </div>
+
+        <!-- Frame 2: Q1 Problem -->
+        <div class="frame-content fade-in" id="frame-2" data-frame="2" hidden>
+          <div class="hook" id="hook-display-q1"></div>
+          <div class="q-meta">
+            <span class="q-index">QUESTION 1 / 2</span>
+            <span class="q-badge">IQ TEST</span>
+          </div>
+          
+          <!-- Countdown Timer Ring -->
+          <div class="timer">
+            <svg viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="42" fill="none" stroke-width="8" class="track"></circle>
+              <circle cx="50" cy="50" r="42" fill="none" stroke-width="8" class="prog" stroke-dasharray="264" stroke-dashoffset="0"></circle>
+            </svg>
+            <div class="timer-num">24</div>
+          </div>
+
+          <div class="q-prompt" id="prompt-q1">Find the logic rule and solve.</div>
+          
+          <div class="q-display">
+            <div class="q-image-wrap" id="frame-2-img-container" style="display: none;">
+              <img id="frame-2-img" alt="Q1 Image" />
+            </div>
+            <!-- Dynamic puzzle viewer -->
+            <div class="eq-lines" id="frame-2-text-puzzle" style="display: none;"></div>
+          </div>
+
+          <div class="choices" id="frame-2-options-container">
+            <div class="choice"><span class="tag">A</span> <span class="opt-val">Option A</span></div>
+            <div class="choice"><span class="tag">B</span> <span class="opt-val">Option B</span></div>
+            <div class="choice"><span class="tag">C</span> <span class="opt-val">Option C</span></div>
+            <div class="choice"><span class="tag">D</span> <span class="opt-val">Option D</span></div>
+          </div>
+          <div class="card-foot">
+            <b>IQ SPARK</b> <span class="dot"></span> iqspark.digital
+          </div>
+        </div>
+
+        <!-- Frame 3: A1 Answer Reveal -->
+        <div class="frame-content fade-in" id="frame-3" data-frame="3" hidden>
+          <div class="hook" id="hook-display-a1">REVEAL THE ANSWER</div>
+          <div class="q-meta">
+            <span class="q-index">ANSWER 1 / 2</span>
+            <span class="q-badge custom">✅ CORRECT</span>
+          </div>
+          
+          <div class="q-display" style="margin-top: 14px;">
+            <div class="q-image-wrap" id="frame-3-img-container" style="display: none;">
+              <img id="frame-3-img" alt="Q1 Answer Image" />
+            </div>
+            <div class="eq-lines" id="frame-3-text-puzzle" style="display: none;"></div>
+          </div>
+
+          <div class="reveal-box">
+            The correct answer is <b id="answer-q1-display">C</b>!<br/>
+            <span id="explanation-q1-display" style="font-size: 11px; opacity: 0.85;">Based on pattern matching logic.</span>
+          </div>
+
+          <div class="card-foot">
+            <b>IQ SPARK</b> <span class="dot"></span> iqspark.digital
+          </div>
+        </div>
+
+        <!-- Frame 4: Q2 Problem -->
+        <div class="frame-content fade-in" id="frame-4" data-frame="4" hidden>
+          <div class="hook" id="hook-display-q2"></div>
+          <div class="q-meta">
+            <span class="q-index">QUESTION 2 / 2</span>
+            <span class="q-badge" style="border-color: var(--brand-2); color: var(--brand-2); background: rgba(123,92,255,0.12);">MENSA LEVEL</span>
+          </div>
+          
+          <!-- Countdown Timer Ring -->
+          <div class="timer">
+            <svg viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="42" fill="none" stroke-width="8" class="track"></circle>
+              <circle cx="50" cy="50" r="42" fill="none" stroke-width="8" class="prog" stroke-dasharray="264" stroke-dashoffset="0"></circle>
+            </svg>
+            <div class="timer-num">24</div>
+          </div>
+
+          <div class="q-prompt" id="prompt-q2">Find the hidden logical rules.</div>
+          
+          <div class="q-display">
+            <div class="q-image-wrap" id="frame-4-img-container" style="display: none;">
+              <img id="frame-4-img" alt="Q2 Image" />
+            </div>
+            <div class="eq-lines" id="frame-4-text-puzzle" style="display: none;"></div>
+          </div>
+
+          <!-- Options container -->
+          <div class="choices" id="frame-4-options-container">
+            <div class="choice"><span class="tag">A</span> <span class="opt-val">Option A</span></div>
+            <div class="choice"><span class="tag">B</span> <span class="opt-val">Option B</span></div>
+            <div class="choice"><span class="tag">C</span> <span class="opt-val">Option C</span></div>
+            <div class="choice"><span class="tag">D</span> <span class="opt-val">Option D</span></div>
+          </div>
+          
+          <!-- Comment bait indicator -->
+          <div class="comment-bait" id="comment-bait-indicator" style="display: none;">
+            Drop your answer in the comments 👇
+          </div>
+
+          <div class="card-foot">
+            <b>IQ SPARK</b> <span class="dot"></span> iqspark.digital
+          </div>
+        </div>
+
+        <!-- Frame 5: Comment CTA (Q2 Comment-bait) -->
+        <div class="frame-content fade-in" id="frame-5" data-frame="5" hidden>
+          <div class="hook">DID YOU SOLVE Q2?</div>
+          <div class="q-meta">
+            <span class="q-index">VIRAL ENGAGE</span>
+            <span class="q-badge custom">💬 COMMENT BAIT</span>
+          </div>
+          
+          <div class="comment-cta-main">
+            <div class="comment-bait big">
+              <span>Mensa Logic Level</span>
+              Drop your answer in the comments! 👇
+            </div>
+            <p style="font-size: 13px; color: var(--text-dim); margin-top: 10px; line-height: 1.5;">
+              The correct answer and full explanation will be pinned soon.
+            </p>
+          </div>
+
+          <div class="card-foot">
+            <b>IQ SPARK</b> <span class="dot"></span> iqspark.digital
+          </div>
+        </div>
+
+        <!-- Frame 6: Final CTA -->
+        <div class="frame-content fade-in" id="frame-6" data-frame="6" hidden>
+          <div class="final-cta">
+            <div class="fc-logo">⚡</div>
+            <h2 class="fc-head">IQ SPARK<br/><span>CHALLENGE</span></h2>
+            <p class="fc-sub">Explore daily high-IQ logical challenges, ciphers, and Mensa-style matrices.</p>
+            <a href="https://iqspark.digital" target="_blank" rel="noopener" class="fc-btn">Play Now</a>
+            <div class="fc-url">iqspark.digital</div>
+          </div>
+        </div>
+
+      </div>
+
+    </main>
+
+    <!-- Step dots -->
+    <div class="steps" id="steps" aria-hidden="true" style="margin-top: 10px;">
+      <span class="s"></span><span class="s"></span><span class="s"></span>
+      <span class="s"></span><span class="s"></span><span class="s"></span>
+    </div>
+
+  </div>
+
+  <!-- ============ PLAYBACK / CAPTURE CONTROLS ── -->
+  <section class="playbar" aria-label="Playback controls">
+    <button class="btn btn-primary" id="btnPlay"><i class="fa-solid fa-play"></i> Auto-play (with music)</button>
+    <button class="btn btn-ghost" id="btnStop"><i class="fa-solid fa-stop"></i> Stop</button>
+    <span style="width:1px;background:rgba(255,255,255,.15);"></span>
+    <button class="btn btn-ghost" id="btnPrev"><i class="fa-solid fa-chevron-left"></i> Prev</button>
+    <span style="display:grid;place-items:center;font-weight:800;color:var(--brand);min-width:130px;text-align:center;" id="stepLabel">1/6 · Intro</span>
+    <button class="btn btn-ghost" id="btnNext">Next <i class="fa-solid fa-chevron-right"></i></button>
+    <span style="width:1px;background:rgba(255,255,255,.15);"></span>
+    <button class="btn btn-gold" id="btnShot"><i class="fa-solid fa-camera"></i> Save current frame (PNG)</button>
+    <button class="btn btn-gold" id="btnShotAll"><i class="fa-solid fa-folder-plus"></i> Save ALL 6 frames</button>
+    <button class="btn btn-primary" id="btnRenderMp4"><i class="fa-solid fa-film"></i> Render MP4</button>
+  </section>
+
+  <!-- Desktop folder helper -->
+  <div class="desk-note" id="deskNote">
+    <i class="fa-regular fa-folder-open"></i>
+    <span>Exported PNGs are named <b>IQSpark_Desktop/&lt;date&gt;/…</b>. Your browser saves them to your
+    <b>Downloads</b> folder (a static website cannot write to your Desktop directly).
+    <b>Tip:</b> create a folder named <b>“IQSpark”</b> on your Desktop and drag the downloaded images into it.</span>
+  </div>
+
+
+  <!-- Progress Section for ffmpeg.wasm -->
+  <div class="progress-section" id="progress-section" hidden style="margin-top: 10px;">
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <p class="progress-text" id="progress-text">Initializing FFmpeg...</p>
+  </div>
+
+  <!-- Export Status -->
+  <div class="export-status" id="export-status" hidden style="margin-top: 10px;">
+    <h3>📦 Export Ready (WASM Video Output)</h3>
+    <div class="export-files" id="export-files"></div>
+  </div>
+
+</section>

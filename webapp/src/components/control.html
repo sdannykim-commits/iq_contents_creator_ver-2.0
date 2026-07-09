@@ -1,0 +1,172 @@
+<!-- ============ STEP 1 · MUSIC PANEL (1-min clip + fades) ============ -->
+<section class="audio-panel" aria-label="Background music">
+  <div class="a-toprow">
+    <span class="a-title"><i class="fa-solid fa-music"></i> Step 1 · Background Music — 1-minute clip with fades</span>
+    <input type="file" id="audioInput" accept="audio/wav, audio/mpeg, audio/mp3, audio/*">
+    <span class="a-name" id="audioName">Upload your track (WAV/MP3)</span>
+    <button class="btn btn-ghost" id="btnClearAudio" style="display:none;">
+      <i class="fa-solid fa-xmark"></i> Remove
+    </button>
+  </div>
+
+  <div class="a-window">
+    <label for="musicStart">🎯 Start point:</label>
+    <input type="range" id="musicStart" min="0" max="120" step="1" value="28">
+    <span class="a-winlabel" id="musicWindowLabel">Clip: 0:28 → 1:28 (1 min) · fade-in 2s / fade-out 2s</span>
+  </div>
+
+  <div class="a-window">
+    <label>🎚️ Fade in:</label>
+    <input type="range" id="fadeIn" min="0" max="5" step="0.5" value="2" style="max-width:120px;">
+    <span class="a-winlabel" id="fadeInVal">2s</span>
+    <label>🎚️ Fade out (end):</label>
+    <input type="range" id="fadeOut" min="0" max="5" step="0.5" value="2" style="max-width:120px;">
+    <span class="a-winlabel" id="fadeOutVal">2s</span>
+    <span class="vol"><i class="fa-solid fa-volume-high"></i>
+      <input type="range" id="volume" min="0" max="1" step="0.05" value="0.7">
+    </span>
+  </div>
+
+  <div class="a-window">
+    <button class="btn btn-primary" id="btnPreviewMusic"><i class="fa-solid fa-play"></i> Preview 1-min clip</button>
+    <button class="btn btn-ghost" id="btnStopMusic"><i class="fa-solid fa-stop"></i> Stop music</button>
+    <span class="a-flash" id="audioFlash"></span>
+  </div>
+
+  <p class="audio-note">
+    Upload your track first, drag the <b>Start point</b>, and the player fills exactly <b>60 seconds</b> from there
+    (the IQ-test time limit) with a <b>fade-in</b> and a <b>fade-out over the last 2 seconds</b>.
+    The same clip is reused as the BGM whether the puzzle is auto-generated or replaced with your own image.
+    Large WAVs stay <b>local on your device</b> (nothing is uploaded).
+  </p>
+</section>
+
+<!-- ============ STEP 2 · GENERATE PUZZLES (Claude Opus 4.8) ============ -->
+<section class="panel-section" aria-label="Generate puzzles">
+  <div class="ap-head">
+    <span class="ap-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Step 2 · Generate Today's 2 IQ Puzzles</span>
+    <span class="ap-note">
+      Powered by <b>Claude Opus 4.8</b> — it pulls genuine IQ / Mensa test questions via web search
+      (incl. YouTube) or builds rule-based puzzles from the iq-engine ruleset. One question set per day
+      (never-repeat), CTA rotates by date.
+    </span>
+  </div>
+  <div class="a-window" style="justify-content: space-between;">
+    <button class="btn btn-primary" id="btnNew">
+      <i class="fa-solid fa-shuffle"></i> Generate puzzles
+    </button>
+    <span id="genSource" style="font-size:12px; font-weight:800; color:var(--text-dim);">—</span>
+  </div>
+</section>
+
+<!-- ============ STEP 3 · REPLACE WITH YOUR OWN IMAGE (auto-extracted) ============ -->
+<section class="attach-panel" aria-label="Attach puzzle images">
+  <div class="ap-head">
+    <span class="ap-title"><i class="fa-solid fa-paperclip"></i> Step 3 · Don't like it? Insert your own puzzle image</span>
+    <span class="ap-note">Upload <b>File 1 → Question 1</b> and/or <b>File 2 → Question 2</b> as JPG/PNG.
+      Claude Vision <b>extracts only the puzzle</b> and rebuilds it into the IQ Spark template
+      (raw screenshots are never shown). Takes priority over the auto-generated question.</span>
+  </div>
+
+  <div class="ap-grid">
+    <!-- FILE 1 -> QUESTION 1 -->
+    <article class="ap-slot" data-slot="0">
+      <div class="ap-slot-title">📎 File 1 → <b>Question 1</b></div>
+      <div class="ap-thumb" id="apThumb0"><i class="fa-regular fa-image"></i><span>No image</span></div>
+      <input type="file" id="apFile0" accept="image/png, image/jpeg">
+      <input type="text" id="apPrompt0" placeholder="Prompt (optional) e.g. Only 2% can solve this…">
+      <input type="text" id="apChoices0" placeholder="Choices (optional) e.g. 10, 8, 4, 9 (first = correct)">
+      <button class="btn btn-ghost ap-clear" id="apClear0" style="display:none;">
+        <i class="fa-solid fa-xmark"></i> Remove File 1
+      </button>
+    </article>
+
+    <!-- FILE 2 -> QUESTION 2 -->
+    <article class="ap-slot" data-slot="1">
+      <div class="ap-slot-title">📎 File 2 → <b>Question 2</b></div>
+      <div class="ap-thumb" id="apThumb1"><i class="fa-regular fa-image"></i><span>No image</span></div>
+      <input type="file" id="apFile1" accept="image/png, image/jpeg">
+      <input type="text" id="apPrompt1" placeholder="Prompt (optional) e.g. 99% get this wrong…">
+      <input type="text" id="apChoices1" placeholder="Choices (optional) e.g. 12, 9, 6, 15 (first = correct)">
+      <button class="btn btn-ghost ap-clear" id="apClear1" style="display:none;">
+        <i class="fa-solid fa-xmark"></i> Remove File 2
+      </button>
+    </article>
+  </div>
+  <p class="ap-hint">
+    💬 No choices? The card shows a <b>“drop your answer in the comments”</b> viral prompt (no answer reveal) —
+    great for maximizing engagement. Add choices to enable the answer-reveal frame.
+  </p>
+</section>
+
+<!-- ============ STEP 4 · MANUAL EQUATION PUZZLE (optional) ============ -->
+<section class="custom-panel" aria-label="Custom question 1 override">
+  <div class="cp-head">
+    <span class="cp-title"><i class="fa-solid fa-keyboard"></i> Step 4 · Replace Question 1 by typing a puzzle (optional)</span>
+    <span class="cp-note">Type any puzzle — equation grid, number sequence, or analogy. Claude Opus 4.8 verifies it and rebuilds it into the template.</span>
+  </div>
+
+  <div class="field" style="margin-bottom: 12px;">
+    <label for="customPrompt0">Prompt (optional)</label>
+    <input type="text" id="customPrompt0" placeholder="Only 2% can solve this. What is 1 × 4 = ?">
+  </div>
+
+  <div class="cp-col">
+    <label for="customText0"><b>Type your puzzle (equation, sequence, analogy…)</b></label>
+    <textarea id="customText0" rows="4" placeholder="16 x 1 = 6&#10;4 x 2 = 12&#10;2 x 3 = 10&#10;1 x 4 = ?"></textarea>
+    <button class="btn btn-primary" id="btnApplyCustomText0" style="margin-top: 8px;"><i class="fa-solid fa-check"></i> Apply text puzzle</button>
+  </div>
+
+  <div class="cp-foot" style="margin-top: 14px;">
+    <button class="btn btn-ghost" id="btnResetCustom0"><i class="fa-solid fa-rotate-left"></i> Reset Q1 to auto</button>
+    <span class="cp-msg" id="customMsg0">Pre-loaded with default values.</span>
+  </div>
+</section>
+
+<section class="custom-panel" aria-label="Custom question 2 override">
+  <div class="cp-head">
+    <span class="cp-title"><i class="fa-solid fa-keyboard"></i> Step 4 · Replace Question 2 by typing a puzzle (optional)</span>
+    <span class="cp-note">Type any puzzle — equation grid, number sequence, or analogy. Claude Opus 4.8 verifies it and rebuilds it into the template.</span>
+  </div>
+
+  <div class="field" style="margin-bottom: 12px;">
+    <label for="customPrompt1">Prompt (optional)</label>
+    <input type="text" id="customPrompt1" placeholder="99% get this wrong. What is the logic?">
+  </div>
+
+  <div class="cp-col">
+    <label for="customText1"><b>Type your puzzle (equation, sequence, analogy…)</b></label>
+    <textarea id="customText1" rows="4" placeholder="16 x 1 = 6&#10;4 x 2 = 12&#10;2 x 3 = 10&#10;1 x 4 = ?"></textarea>
+    <button class="btn btn-primary" id="btnApplyCustomText1" style="margin-top: 8px;"><i class="fa-solid fa-check"></i> Apply text puzzle</button>
+  </div>
+
+  <div class="cp-foot" style="margin-top: 14px;">
+    <button class="btn btn-ghost" id="btnResetCustom1"><i class="fa-solid fa-rotate-left"></i> Reset Q2 to auto</button>
+    <span class="cp-msg" id="customMsg1">Pre-loaded with default values.</span>
+  </div>
+</section>
+
+<!-- ============ STEP 5 · HOOK GENERATOR ============ -->
+<section class="hook-panel" aria-label="Hook headline generator">
+  <div class="hp-head">
+    <span class="hp-title"><i class="fa-solid fa-bolt"></i> Step 5 · Hook Generator — top headline (CTA &amp; algorithm booster)</span>
+    <span class="hp-note">Generate scroll-stopping top hooks engineered for the Shorts algorithm, then apply with one click.</span>
+  </div>
+  <div class="hp-row">
+    <select id="hookStyle" title="Hook style">
+      <option value="all">🎲 Any style</option>
+      <option value="challenge">🔥 Challenge / dare</option>
+      <option value="fomo">😱 FOMO / rarity</option>
+      <option value="identity">🧠 Identity / IQ flex</option>
+      <option value="time">⏱️ Time pressure</option>
+      <option value="comment">💬 Comment bait</option>
+    </select>
+    <button class="btn btn-gold" id="btnGenHooks"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate hooks</button>
+    <input type="text" id="hookCustom" placeholder="…or type your own hook here">
+    <button class="btn btn-primary" id="btnApplyCustomHook"><i class="fa-solid fa-check"></i> Use my hook</button>
+  </div>
+  <div class="hp-results" id="hookResults" aria-live="polite">
+    <span class="hp-empty">Click “Generate hooks” to get 5 algorithm-optimized headlines.</span>
+  </div>
+  <div class="hp-current">Current top hook: <b id="hookCurrent">—</b></div>
+</section>
