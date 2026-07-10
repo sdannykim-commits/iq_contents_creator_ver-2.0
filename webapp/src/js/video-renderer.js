@@ -28,6 +28,77 @@ async function captureFrameBlobs(elements, state) {
   return captures;
 }
 
+// Sets the countdown widget on a question frame to a specific second, so per-second captures
+// animate the timer in the rendered video instead of freezing it on one value.
+function setTimerVisual(frameId, secondsLeft, total) {
+  const el = document.getElementById(`frame-${frameId}`);
+  if (!el) return;
+  const numEl = el.querySelector('.timer-num');
+  const progEl = el.querySelector('.prog');
+  if (numEl) numEl.textContent = String(secondsLeft);
+  if (progEl) progEl.style.strokeDashoffset = String(264 * (total - secondsLeft) / total);
+}
+
+// Captures the full render timeline as an ordered list of { duration, blob } slides.
+// Question frames (2 = Q1, 4 = Q2) are captured once PER SECOND with the countdown decremented,
+// so the timer visibly ticks down in the video; the other frames are single static slides.
+// One frame is shown at a time with its fade-in frozen, on an opaque dark background.
+async function captureSlides(elements, state, updateProgress) {
+  const originalFrame = state.currentFrame || state.firstFrame;
+  const slides = [];
+
+  const grab = async () => {
+    const canvas = await html2canvas(elements.frameCanvasCard, { scale: 3, useCORS: true, backgroundColor: '#050816' });
+    return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  };
+  const showOnly = (frameId) => {
+    for (let k = state.firstFrame; k <= state.totalFrames; k++) {
+      const fk = document.getElementById(`frame-${k}`);
+      fk.hidden = k !== frameId;
+      fk.style.animation = 'none';
+    }
+  };
+
+  // Ordered timeline. `count` = animate the countdown for that many seconds (1 slide/sec);
+  // `duration` = a single static slide held for that many seconds.
+  const plan = [
+    { frame: 2, count: state.timings.p1 },    // Q1 countdown
+    { frame: 3, duration: state.timings.a1 },  // Answer 1
+    { frame: 4, count: state.timings.p2 },     // Q2 countdown
+    { frame: 5, duration: state.timings.comm }, // Comment CTA
+    { frame: 6, duration: state.timings.cta }   // Final CTA
+  ];
+
+  const totalCaptures = plan.reduce((n, s) => n + (s.count || 1), 0);
+  let done = 0;
+
+  for (const step of plan) {
+    showOnly(step.frame);
+    if (step.count) {
+      for (let s = step.count; s >= 1; s--) {
+        setTimerVisual(step.frame, s, step.count);
+        slides.push({ duration: 1, blob: await grab() });
+        done++;
+        if (updateProgress) updateProgress(30 + Math.round(50 * done / totalCaptures), `Capturing frames… (${done}/${totalCaptures})`);
+      }
+    } else {
+      slides.push({ duration: step.duration, blob: await grab() });
+      done++;
+      if (updateProgress) updateProgress(30 + Math.round(50 * done / totalCaptures), `Capturing frames… (${done}/${totalCaptures})`);
+    }
+  }
+
+  // Restore the view + reset the question timers to their full value.
+  setTimerVisual(2, state.timings.p1, state.timings.p1);
+  setTimerVisual(4, state.timings.p2, state.timings.p2);
+  for (let k = state.firstFrame; k <= state.totalFrames; k++) {
+    const fk = document.getElementById(`frame-${k}`);
+    fk.hidden = k !== originalFrame;
+    fk.style.animation = '';
+  }
+  return slides;
+}
+
 // Captures current single frame and downloads as PNG
 export async function saveCurrentFramePng(state, elements) {
   try {
@@ -60,13 +131,14 @@ export async function renderVideo(state, elements, updateProgress) {
       });
     }
 
-    updateProgress(35, 'Capturing all 5 frames (html2canvas)...');
+    updateProgress(30, 'Capturing animated frames (html2canvas)...');
 
-    const captures = await captureFrameBlobs(elements, state);
+    // Question frames are captured once per second so the countdown timer actually ticks.
+    const slides = await captureSlides(elements, state, updateProgress);
 
-    // Write image frames to virtual file system (named by their frame id, e.g. frame_2.png)
-    for (const { id, blob } of captures) {
-      await state.ffmpeg.writeFile(`frame_${id}.png`, await fetchFile(blob));
+    // Write every slide to the virtual file system as f000.png, f001.png, …
+    for (let i = 0; i < slides.length; i++) {
+      await state.ffmpeg.writeFile(`f${String(i).padStart(3, '0')}.png`, await fetchFile(slides[i].blob));
     }
     
     updateProgress(60, 'Processing BGM Audio...');
@@ -89,23 +161,14 @@ export async function renderVideo(state, elements, updateProgress) {
       }
     }
     
-    updateProgress(80, 'Compiling 5-frame slides (FFmpeg)...');
+    updateProgress(82, 'Compiling video (FFmpeg)...');
 
-    // Slides timing concat — starts on Q1 (no intro). Total = 24+6+24+2+4 = 60s.
-    const slidesTxt = `
-file frame_2.png
-duration ${state.timings.p1}
-file frame_3.png
-duration ${state.timings.a1}
-file frame_4.png
-duration ${state.timings.p2}
-file frame_5.png
-duration ${state.timings.comm}
-file frame_6.png
-duration ${state.timings.cta}
-file frame_6.png
-`.trim();
-    
+    // Concat every slide with its duration (question frames = 1s each, so the timer animates).
+    // Total = 24 + 6 + 24 + 2 + 4 = 60s. Repeat the last file so its duration is honored.
+    const slidesTxt = slides
+      .map((s, i) => `file f${String(i).padStart(3, '0')}.png\nduration ${s.duration}`)
+      .join('\n') + `\nfile f${String(slides.length - 1).padStart(3, '0')}.png`;
+
     await state.ffmpeg.writeFile('slides.txt', slidesTxt);
     
     // Render video
