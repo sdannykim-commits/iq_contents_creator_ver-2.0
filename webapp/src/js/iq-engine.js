@@ -23,13 +23,10 @@ const DATA_POOL = {
     { grid: ['2', '3', '5', '4', '2', '6', '8', '3', '?'], ans: '11', opt: ['11', '9', '12', '10'], exp: 'Row logic: Cell1 + Cell2 = Cell3.' },
     { grid: ['12', '4', '3', '20', '5', '4', '18', '3', '?'], ans: '6', opt: ['6', '9', '8', '5'], exp: 'Row division: Cell1 divided by Cell2 equals Cell3.' },
     { grid: ['8', '1', '6', '3', '5', '7', '4', '9', '?'], ans: '2', opt: ['2', '5', '6', '8'], exp: 'Lo Shu Magic Square: The sum of elements in each row, column, and diagonal is 15.' }
-  ],
-  analogy: [
-    { term: ['Square', '36', 'Triangle', '?'], ans: '64', opt: ['64', '49', '81', '72'], exp: 'Squared word length: Square has 6 letters (6²=36); Triangle has 8 letters (8²=64).' },
-    { term: ['DOG', '26', 'CAT', '?'], ans: '24', opt: ['24', '20', '22', '18'], exp: 'Alphabet index sum: D(4)+O(15)+G(7)=26. C(3)+A(1)+T(20)=24.' },
-    { term: ['CAB', '6', 'BED', '?'], ans: '40', opt: ['40', '30', '20', '36'], exp: 'Alphabet index product: C(3)*A(1)*B(2)=6. B(2)*E(5)*D(4)=40.' },
-    { term: ['BAD', '7', 'CAFE', '?'], ans: '15', opt: ['15', '17', '13', '19'], exp: 'Alphabet index sum: B(2)+A(1)+D(4)=7. C(3)+A(1)+F(6)+E(5)=15.' }
   ]
+  // NOTE: the "analogy" category was intentionally removed from the offline pool. Its entries
+  // relied on letter-counting / alphabet-index gimmicks (e.g. word length², position sums),
+  // which are explicitly disallowed. Offline fallback now only serves numerical + matrix puzzles.
 };
 
 // Returns Claude API key from local storage or config
@@ -113,7 +110,8 @@ Conform strictly to the following quality principles:
 - **Both q1 and q2 must be challenging, engaging, and premium high-quality logic puzzles suitable for Mensa or Raven's test takers. Treat them as equals — neither is an "easy" warm-up.**
 - **DO NOT split questions into "easy" or "childish" tiers. Keep both questions intellectually engaging.**
 - **DO NOT generate simple, childish, or trivial analogies (e.g., avoid basic addition or linear counting like 2, 4, 6, 8 or mappings like "Sun : Day :: Moon : Night").**
-- Utilize logical rules such as row division/multiplication in matrices, multi-step series progression, alphabetical index logic, or word attribute math conversions.
+- **BANNED: never use letter-counting or alphabet-index gimmicks — no "number of letters in the word", no "word length squared", no "sum/product of A=1..Z=26 letter positions". These read as cheap trick questions and are not allowed.**
+- Utilize logical rules such as row division/multiplication in matrices or multi-step numeric series progression.
 - Every puzzle MUST be internally consistent: the stated answer must be the unique, provable result of the explanation's rule.
 
 General constraints:
@@ -297,6 +295,7 @@ Do ALL of the following:
 5. Write a concise, correct "explanation" of the rule (one or two sentences).
 6. The "prompt" is shown ON the question card, so it MUST be a SHORT call-to-action of at most ~6 words (e.g. "Find the missing number.") that NEVER describes, hints at, or reveals the rule. If the draft's prompt explains the logic, replace it with a short generic instruction. All rule detail belongs ONLY in "explanation".
 7. If the draft is broken, childish, or ambiguous, REWRITE it into a clean Mensa-grade puzzle of the same spirit and type.
+8. BANNED rule family: never produce letter-counting / alphabet-index gimmicks (word length, word-length squared, or A=1..Z=26 position sums/products). If the draft uses one, replace it with a genuine numeric/logical rule.
 
 Output MUST be a single raw JSON object EXACTLY in this shape (include only the data field that matches the type):
 {
@@ -403,7 +402,8 @@ export function generateLocalSeededPuzzle(seedStr) {
   const seed = Math.abs(hash);
   const rand = mulberry32(seed);
   
-  const types = ['numerical', 'matrix', 'analogy'];
+  // Only numerical + matrix offline (analogy pool removed — see DATA_POOL note).
+  const types = ['numerical', 'matrix'];
   const typeIndexQ1 = Math.floor(rand() * types.length);
   const typeQ1 = types[typeIndexQ1];
 
@@ -459,24 +459,39 @@ export function generateLocalSeededPuzzle(seedStr) {
   return { q1, q2 };
 }
 
-// LocalStorage duplicate prevention (up to 4000 items)
-export function markAsSeen(puzzleId) {
+// Content signature for a question — dedup is by ACTUAL puzzle content (type + data + answer),
+// NOT by a seed-derived id. Seed-derived ids are deterministic, so id-based dedup wrongly
+// flagged a same-date reload as "already seen" and forced the offline pool. Content signatures
+// let Claude regenerate a genuinely different puzzle when a repeat is detected.
+export function puzzleSignature(q) {
+  if (!q) return '';
+  const raw = q.equation || q.sequenceData || q.matrixData || q.analogyData || q.prompt || '';
+  const data = Array.isArray(raw) ? raw.join(',') : String(raw);
+  return `${q.type || 'x'}|${data}|${q.answer}`;
+}
+
+// LocalStorage duplicate prevention (up to 4000 signatures). v2 = content signatures.
+const SEEN_KEY = 'iqspark_seen_v2';
+
+export function markAsSeen(sig) {
+  if (!sig) return;
   try {
-    let seen = JSON.parse(localStorage.getItem('iqspark_seen_v1') || '[]');
-    if (!seen.includes(puzzleId)) {
-      seen.push(puzzleId);
+    let seen = JSON.parse(localStorage.getItem(SEEN_KEY) || '[]');
+    if (!seen.includes(sig)) {
+      seen.push(sig);
       if (seen.length > 4000) seen.shift();
-      localStorage.setItem('iqspark_seen_v1', JSON.stringify(seen));
+      localStorage.setItem(SEEN_KEY, JSON.stringify(seen));
     }
   } catch (e) {
     console.error('Failed to update seen history:', e);
   }
 }
 
-export function isAlreadySeen(puzzleId) {
+export function isAlreadySeen(sig) {
+  if (!sig) return false;
   try {
-    const seen = JSON.parse(localStorage.getItem('iqspark_seen_v1') || '[]');
-    return seen.includes(puzzleId);
+    const seen = JSON.parse(localStorage.getItem(SEEN_KEY) || '[]');
+    return seen.includes(sig);
   } catch (e) {
     return false;
   }

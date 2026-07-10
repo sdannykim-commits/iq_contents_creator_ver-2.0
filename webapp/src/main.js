@@ -1,4 +1,4 @@
-import { fetchClaudeDailyPuzzle, generateLocalSeededPuzzle, fetchClaudeVisionRebuilder, fetchClaudeRevisePuzzle, fetchClaudeTopHooks, markAsSeen, isAlreadySeen } from './js/iq-engine';
+import { fetchClaudeDailyPuzzle, generateLocalSeededPuzzle, fetchClaudeVisionRebuilder, fetchClaudeRevisePuzzle, fetchClaudeTopHooks, markAsSeen, isAlreadySeen, puzzleSignature } from './js/iq-engine';
 import { getDailyCTA } from './js/cta-copy';
 import { AudioClipProcessor } from './js/audio-clip';
 import { solveEquationPuzzle } from './js/logic-solver';
@@ -172,47 +172,70 @@ function initDefaultDate() {
   elements.datePick.value = today;
 }
 
-// Load daily logic puzzle - Claude Hybrid Async Fetcher
+// True when neither question was shown before AND the two questions differ.
+function isFreshPair(p) {
+  if (!p || !p.q1 || !p.q2) return false;
+  const s1 = puzzleSignature(p.q1);
+  const s2 = puzzleSignature(p.q2);
+  return s1 !== s2 && !isAlreadySeen(s1) && !isAlreadySeen(s2);
+}
+
+// Load daily logic puzzle. Prefers Claude Opus 4.8 and NEVER silently degrades to the offline
+// pool just because a puzzle repeated: on a repeat it re-calls Claude with a varied seed to get
+// a genuinely different puzzle. Offline is a true last resort (Claude unreachable) only.
 async function loadDailyPuzzle(navigateToQuestion = false) {
+  // Never regenerate underneath a running auto-play/countdown — that leaves the timer frozen.
+  if (state.isPlayingAutoPlay) stopAutoPlay(state, elements, stopAudioPreview);
+
   const dateStr = elements.datePick.value || new Date().toISOString().split('T')[0];
   const seed = `${dateStr}_offset_${state.shuffleOffset}`;
-  
+
   // Daily CTA rotation based on Date seed!
   const dailyCta = getDailyCTA(dateStr);
   state.cta = dailyCta;
   state.hookText = dailyCta.topHook;
   elements.hookCurrent.textContent = state.hookText;
-  
+
   state.captionText = `Can you solve BOTH puzzles? 🧩\nQ1 answer revealed! Q2 answer in comments 👇\n\n#IQTest #BrainTeaser #MensaChallenge`;
 
   // UI Feedback
   elements.framePlaceholder.innerHTML = `<span class="placeholder-icon">🤖</span><p>Generating high-IQ logical puzzle<br/>via Claude Opus 4.8 API...</p>`;
   setGenSource('loading');
 
-  try {
-    // Attempt Claude API call
-    state.dailyPuzzle = await fetchClaudeDailyPuzzle(seed);
-    console.log("✨ Daily puzzle generated live via Claude Opus 4.8 API!", state.dailyPuzzle);
-    setGenSource('claude');
-  } catch (err) {
-    // Safe Offline fallback
-    console.warn("⚠️ Claude API fetch failed, using local offline generator. Reason:", err.message);
-    state.dailyPuzzle = generateLocalSeededPuzzle(seed);
-    setGenSource('offline');
+  let puzzle = null;
+  // Attempt 0 uses the date seed (stable daily puzzle). If that content was already shown
+  // (e.g. a same-date reload), retries use a randomized seed so Claude returns a different,
+  // non-repeating puzzle. Any successful Claude call is kept — we only leave Claude if it throws.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const trySeed = attempt === 0 ? seed : `${seed}_r${attempt}_${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      const p = await fetchClaudeDailyPuzzle(trySeed);
+      puzzle = p; // latest Claude candidate
+      if (isFreshPair(p) || attempt === 3) break;
+    } catch (err) {
+      console.warn('⚠️ Claude fetch failed — falling back to offline. Reason:', err.message);
+      break; // keep any earlier Claude candidate; if none, offline below
+    }
   }
 
-  // Never-repeat guard: reroll the local pool if either question was already shown before.
-  // (Claude-generated ids are unique per call, so this only ever loops on the local fallback.)
-  let rerollAttempt = 0;
-  while (
-    (isAlreadySeen(state.dailyPuzzle.q1.id) || isAlreadySeen(state.dailyPuzzle.q2.id)) &&
-    rerollAttempt < 20
-  ) {
-    rerollAttempt++;
-    state.dailyPuzzle = generateLocalSeededPuzzle(`${seed}_retry${rerollAttempt}`);
+  let source;
+  if (puzzle) {
+    source = 'claude';
+    console.log('✨ Daily puzzle generated live via Claude Opus 4.8 API!', puzzle);
+  } else {
+    // Offline last resort — pick a non-repeating numerical+matrix pair from the cleaned pool.
+    for (let i = 0; i < 40; i++) {
+      puzzle = generateLocalSeededPuzzle(i === 0 ? seed : `${seed}_off${i}`);
+      if (isFreshPair(puzzle)) break;
+    }
+    source = 'offline';
   }
-  markAsSeen(state.dailyPuzzle.q1.id);
-  markAsSeen(state.dailyPuzzle.q2.id);
+
+  state.dailyPuzzle = puzzle;
+  setGenSource(source);
+
+  markAsSeen(puzzleSignature(puzzle.q1));
+  markAsSeen(puzzleSignature(puzzle.q2));
 
   // Trigger initial frame generation using frame-renderer
   generateFrames(state, elements, updateStepLabel);
@@ -260,7 +283,8 @@ function setupEventListeners() {
   });
 
   elements.btnResetHistory.addEventListener('click', () => {
-    localStorage.removeItem('iqspark_seen_v1');
+    localStorage.removeItem('iqspark_seen_v2');
+    localStorage.removeItem('iqspark_seen_v1'); // clear legacy id-based history too
     alert("Never-repeat signature history cleared successfully! 🧹");
   });
 
