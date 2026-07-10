@@ -17,12 +17,11 @@ function displayPrompt(q) {
 
 // Updates hook text values across active preview frames
 export function updateHookDisplays(state, elements) {
-  elements.hookDisplayIntro.textContent = state.hookText;
   elements.hookDisplayQ1.textContent = state.hookText;
   elements.hookDisplayQ2.textContent = state.hookText;
 }
 
-// Renders the overall 6-frame slideshow structure
+// Renders the overall 5-frame slideshow structure (Q1 → Answer 1 → Q2 → Comment → Final CTA)
 export function generateFrames(state, elements, updateStepLabel) {
   // Guard: an override can be applied while the daily puzzle is still being fetched from
   // Claude. Bail out safely — loadDailyPuzzle re-runs generateFrames once the set arrives,
@@ -81,9 +80,9 @@ export function generateFrames(state, elements, updateStepLabel) {
   }
   if (fcUrl) fcUrl.textContent = state.cta.brandUrl;
 
-  // Preserve current preview frame slide instead of resetting to 1 on update
-  const targetFrame = state.currentFrame || 1;
-  for (let i = 1; i <= 6; i++) {
+  // Preserve current preview frame slide instead of resetting on update
+  const targetFrame = state.currentFrame || state.firstFrame;
+  for (let i = state.firstFrame; i <= state.totalFrames; i++) {
     document.getElementById(`frame-${i}`).hidden = i !== targetFrame;
   }
   state.currentFrame = targetFrame;
@@ -159,39 +158,23 @@ export function renderFrameQuestion(q, imgCont, imgEl, txtEl, optCont) {
     if (q.options && q.options.length > 0) {
       optCont.style.display = 'grid';
       const choicesList = optCont.querySelectorAll('.choice');
+      // optCont is only ever passed for the active question cards (frame-2 / frame-4),
+      // so every rendered option gets the interactive tap feedback.
       q.options.forEach((opt, idx) => {
         const choiceEl = choicesList[idx];
-        if (choiceEl) {
-          // Reset styling state
-          choiceEl.className = 'choice';
-          choiceEl.querySelector('.opt-val').textContent = opt;
-          
-          // Mark correct choice visually on reveal frames (Frame 3 A1, etc.)
-          const isAnswer = opt === q.answer;
-          const isRevealFrame = !optCont.id.includes('frame-2') && !optCont.id.includes('frame-4');
-          if (isAnswer && isRevealFrame) {
-            choiceEl.classList.add('correct');
-          }
+        if (!choiceEl) return;
 
-          // Interactive click listener (only on active questions, not reveal frames)
-          if (!isRevealFrame) {
-            // Remove previous listeners (cloning node avoids duplicate bindings)
-            const clonedEl = choiceEl.cloneNode(true);
-            choiceEl.parentNode.replaceChild(clonedEl, choiceEl);
-            
-            clonedEl.addEventListener('click', () => {
-              // Clear previous selection states in this container
-              optCont.querySelectorAll('.choice').forEach(c => c.className = 'choice');
-              
-              clonedEl.classList.add('selected');
-              if (opt === q.answer) {
-                clonedEl.classList.add('correct');
-              } else {
-                clonedEl.classList.add('wrong');
-              }
-            });
-          }
-        }
+        choiceEl.className = 'choice';
+        choiceEl.querySelector('.opt-val').textContent = opt;
+
+        // Clone to drop any previous click listeners, then bind fresh feedback.
+        const clonedEl = choiceEl.cloneNode(true);
+        choiceEl.parentNode.replaceChild(clonedEl, choiceEl);
+        clonedEl.addEventListener('click', () => {
+          optCont.querySelectorAll('.choice').forEach(c => c.className = 'choice');
+          clonedEl.classList.add('selected');
+          clonedEl.classList.add(opt === q.answer ? 'correct' : 'wrong');
+        });
       });
     } else {
       optCont.style.display = 'none';

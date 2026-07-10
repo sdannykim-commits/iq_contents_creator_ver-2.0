@@ -3,27 +3,29 @@ import JSZip from 'jszip';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
 
-// Captures all 6 frames as PNG blobs. Shows exactly one frame at a time (so frames don't
-// stack in the capture) with its fade-in animation frozen (so html2canvas grabs it at full
-// opacity, not mid-fade) on an opaque dark background. Restores the viewed frame afterwards.
+// Captures every active frame (frames 2..6 — the intro frame was removed) as a PNG blob.
+// Shows exactly one frame at a time (so frames don't stack in the capture) with its fade-in
+// animation frozen (so html2canvas grabs it at full opacity, not mid-fade) on an opaque dark
+// background. Restores the viewed frame afterwards. Returns [{ id, blob }] in play order.
 async function captureFrameBlobs(elements, state) {
-  const originalFrame = state.currentFrame || 1;
-  const blobs = [];
-  for (let i = 1; i <= 6; i++) {
-    for (let k = 1; k <= 6; k++) {
+  const originalFrame = state.currentFrame || state.firstFrame;
+  const captures = [];
+  for (let i = state.firstFrame; i <= state.totalFrames; i++) {
+    for (let k = state.firstFrame; k <= state.totalFrames; k++) {
       const fk = document.getElementById(`frame-${k}`);
       fk.hidden = k !== i;
       fk.style.animation = 'none';
     }
     const canvas = await html2canvas(elements.frameCanvasCard, { scale: 3, useCORS: true, backgroundColor: '#050816' });
-    blobs.push(await new Promise((resolve) => canvas.toBlob(resolve, 'image/png')));
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    captures.push({ id: i, blob });
   }
-  for (let k = 1; k <= 6; k++) {
+  for (let k = state.firstFrame; k <= state.totalFrames; k++) {
     const fk = document.getElementById(`frame-${k}`);
     fk.hidden = k !== originalFrame;
     fk.style.animation = '';
   }
-  return blobs;
+  return captures;
 }
 
 // Captures current single frame and downloads as PNG
@@ -58,13 +60,13 @@ export async function renderVideo(state, elements, updateProgress) {
       });
     }
 
-    updateProgress(35, 'Capturing all 6 frames (html2canvas)...');
+    updateProgress(35, 'Capturing all 5 frames (html2canvas)...');
 
-    const canvasBlobs = await captureFrameBlobs(elements, state);
-    
-    // Write image frames to virtual file system
-    for (let i = 0; i < 6; i++) {
-      await state.ffmpeg.writeFile(`frame_${i+1}.png`, await fetchFile(canvasBlobs[i]));
+    const captures = await captureFrameBlobs(elements, state);
+
+    // Write image frames to virtual file system (named by their frame id, e.g. frame_2.png)
+    for (const { id, blob } of captures) {
+      await state.ffmpeg.writeFile(`frame_${id}.png`, await fetchFile(blob));
     }
     
     updateProgress(60, 'Processing BGM Audio...');
@@ -87,12 +89,10 @@ export async function renderVideo(state, elements, updateProgress) {
       }
     }
     
-    updateProgress(80, 'Compiling 6-frame slides (FFmpeg)...');
-    
-    // Slides timing concat
+    updateProgress(80, 'Compiling 5-frame slides (FFmpeg)...');
+
+    // Slides timing concat — starts on Q1 (no intro). Total = 24+6+24+2+4 = 60s.
     const slidesTxt = `
-file frame_1.png
-duration ${state.timings.intro}
 file frame_2.png
 duration ${state.timings.p1}
 file frame_3.png
@@ -119,7 +119,10 @@ file frame_6.png
     
     const videoData = await state.ffmpeg.readFile('portrait.mp4');
     const videoBlob = new Blob([videoData.buffer], { type: 'video/mp4' });
+    // Free the previous render's blob URL (the current one stays alive for the Save Video button).
+    if (state.lastVideoUrl) { try { URL.revokeObjectURL(state.lastVideoUrl); } catch (e) {} }
     const url = URL.createObjectURL(videoBlob);
+    state.lastVideoUrl = url;
 
     const today = elements.datePick.value || new Date().toISOString().split('T')[0];
     const subdir = today.replace(/-/g, ''); // yyyymmdd dated folder
@@ -184,13 +187,13 @@ file frame_6.png
   }
 }
 
-// Packages all 6 frames + metadata text file into a ZIP archive
+// Packages all 5 frames + metadata text file into a ZIP archive
 export async function exportAllZip(state, elements) {
   const zip = new JSZip();
   const today = elements.datePick.value || new Date().toISOString().split('T')[0];
 
-  const blobs = await captureFrameBlobs(elements, state);
-  blobs.forEach((blob, idx) => {
+  const captures = await captureFrameBlobs(elements, state);
+  captures.forEach(({ blob }, idx) => {
     zip.file(`IQSpark_Desktop/${today}/iqspark_${today}_frame_${idx + 1}.png`, blob);
   });
 
@@ -200,7 +203,7 @@ IQ Spark Studio v2.0 - Platform Metadata
 Date: ${today}
 ===================================================
 
-[Scroll-stopping Hook (Frame 1)]
+[Scroll-stopping Hook (Q1)]
 ${state.hookText}
 
 [Description & Caption (All platforms)]

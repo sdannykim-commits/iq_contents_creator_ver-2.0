@@ -13,26 +13,8 @@
 
       <!-- Card Container -->
       <div class="card" id="frame-canvas" style="display: none;">
-        
-        <!-- Frame 1: Intro -->
-        <div class="frame-content fade-in" id="frame-1" data-frame="1" hidden>
-          <div class="hook" id="hook-display-intro">Only 2% get BOTH right 🧠</div>
-          <div class="q-meta">
-            <span class="q-index">DAILY IQ</span>
-            <span class="q-badge custom">CHALLENGE</span>
-          </div>
-          <div class="intro-main">
-            <div class="fc-logo" style="margin-bottom: 12px; margin-top: 24px;">🧠</div>
-            <div class="intro-sub" style="font-size: 14px; font-weight: 700; line-height: 1.5; color: var(--text-dim);">
-              Two real Mensa puzzles ahead.<br/>Can you beat the average score?
-            </div>
-          </div>
-          <div class="card-foot">
-            <b>IQ SPARK</b> <span class="dot"></span> iqspark.digital
-          </div>
-        </div>
 
-        <!-- Frame 2: Q1 Problem -->
+        <!-- Frame 2: Q1 Problem (first frame — video starts directly on the puzzle) -->
         <div class="frame-content fade-in" id="frame-2" data-frame="2" hidden>
           <div class="hook" id="hook-display-q1"></div>
           <div class="q-meta">
@@ -180,7 +162,7 @@
     <!-- Step dots -->
     <div class="steps" id="steps" aria-hidden="true" style="margin-top: 10px;">
       <span class="s"></span><span class="s"></span><span class="s"></span>
-      <span class="s"></span><span class="s"></span><span class="s"></span>
+      <span class="s"></span><span class="s"></span>
     </div>
 
   </div>
@@ -191,11 +173,11 @@
     <button class="btn btn-ghost" id="btnStop"><i class="fa-solid fa-stop"></i> Stop</button>
     <span style="width:1px;background:rgba(255,255,255,.15);"></span>
     <button class="btn btn-ghost" id="btnPrev"><i class="fa-solid fa-chevron-left"></i> Prev</button>
-    <span style="display:grid;place-items:center;font-weight:800;color:var(--brand);min-width:130px;text-align:center;" id="stepLabel">1/6 · Intro</span>
+    <span style="display:grid;place-items:center;font-weight:800;color:var(--brand);min-width:130px;text-align:center;" id="stepLabel">1/5 · Question 1</span>
     <button class="btn btn-ghost" id="btnNext">Next <i class="fa-solid fa-chevron-right"></i></button>
     <span style="width:1px;background:rgba(255,255,255,.15);"></span>
     <button class="btn btn-gold" id="btnShot"><i class="fa-solid fa-camera"></i> Save current frame (PNG)</button>
-    <button class="btn btn-gold" id="btnShotAll"><i class="fa-solid fa-folder-plus"></i> Save ALL 6 frames</button>
+    <button class="btn btn-gold" id="btnShotAll"><i class="fa-solid fa-folder-plus"></i> Save ALL 5 frames</button>
     <button class="btn btn-primary" id="btnRenderMp4"><i class="fa-solid fa-film"></i> Render MP4</button>
   </section>
 

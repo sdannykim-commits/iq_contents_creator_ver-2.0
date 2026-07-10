@@ -4,7 +4,6 @@
 
 const RULE_CANDIDATES = [
   // ── Original Classic Rules ──
-  { name: '(a + b) * c', fn: (a, b, c) => (a + b) * (c || 2) },
   { name: '(a + b) * 2', fn: (a, b) => (a + b) * 2 },
   { name: 'a * b + c', fn: (a, b, c) => a * b + (c || 0) },
   { name: 'a * (b + 1)', fn: (a, b) => a * (b + 1) },

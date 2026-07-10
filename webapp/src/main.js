@@ -12,8 +12,11 @@ import { switchFrame, updateStepLabel, startAutoPlay, stopAutoPlay } from './js/
 
 // ── State Management ────────────────────────────────
 const state = {
-  currentFrame: 1,
-  totalFrames: 6,
+  // The flow runs over frames 2..6 (Q1, Answer1, Q2, Comment, Final CTA). The old intro
+  // frame (frame-1) was removed — the video starts directly on the first puzzle.
+  currentFrame: 2,
+  firstFrame: 2,
+  totalFrames: 6, // last frame id
   p1Image: null,
   p2Image: null,
   bgmFile: null,
@@ -22,12 +25,11 @@ const state = {
   cta: null, // Rotated daily CTA copy
   shuffleOffset: 0,
   timings: {
-    intro: 2,
     p1: 24,
     a1: 6,
     p2: 24,
     comm: 2,
-    cta: 2
+    cta: 4 // intro's 2s folded into the final CTA to keep the 60s (music-matched) total
   },
   audioSettings: {
     startPoint: 28,
@@ -121,7 +123,6 @@ const elements = {
   audioFlash: document.getElementById('audioFlash'),
 
   // Canvas Inner Elements
-  hookDisplayIntro: document.getElementById('hook-display-intro'),
   hookDisplayQ1: document.getElementById('hook-display-q1'),
   hookDisplayA1: document.getElementById('hook-display-a1'),
   hookDisplayQ2: document.getElementById('hook-display-q2'),
@@ -218,9 +219,9 @@ async function loadDailyPuzzle(navigateToQuestion = false) {
 
   if (navigateToQuestion) {
     // Auto-focus slide to Question 1 (Frame 2) so user sees the newly generated puzzle instantly!
-    state.currentFrame = 2;
-    for (let i = 1; i <= 6; i++) {
-      document.getElementById(`frame-${i}`).hidden = i !== 2;
+    state.currentFrame = state.firstFrame;
+    for (let i = state.firstFrame; i <= state.totalFrames; i++) {
+      document.getElementById(`frame-${i}`).hidden = i !== state.firstFrame;
     }
     updateStepLabel(state, elements);
   }

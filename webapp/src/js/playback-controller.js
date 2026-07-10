@@ -4,7 +4,7 @@ let currentTimerInterval = null;
 // Switches the carousel slides visually (Prev / Next)
 export function switchFrame(direction, state, elements, updateStepLabel) {
   const newFrame = state.currentFrame + direction;
-  if (newFrame < 1 || newFrame > state.totalFrames) return;
+  if (newFrame < state.firstFrame || newFrame > state.totalFrames) return;
 
   document.getElementById(`frame-${state.currentFrame}`).hidden = true;
   document.getElementById(`frame-${newFrame}`).hidden = false;
@@ -18,23 +18,24 @@ export function switchFrame(direction, state, elements, updateStepLabel) {
 
 // Synchronizes playback status indicators and step dots
 export function updateStepLabel(state, elements) {
+  // Flow runs over frames 2..6, shown to the user as steps 1..5.
   const labels = [
-    '1/6 · Intro',
-    '2/6 · Question 1',
-    '3/6 · Answer 1',
-    '4/6 · Question 2',
-    '5/6 · Comment CTA',
-    '6/6 · Final CTA'
+    '1/5 · Question 1',
+    '2/5 · Answer 1',
+    '3/5 · Question 2',
+    '4/5 · Comment CTA',
+    '5/5 · Final CTA'
   ];
-  elements.stepLabel.textContent = labels[state.currentFrame - 1];
-  
-  elements.btnPrev.disabled = state.currentFrame === 1;
+  const idx = state.currentFrame - state.firstFrame;
+  elements.stepLabel.textContent = labels[idx];
+
+  elements.btnPrev.disabled = state.currentFrame === state.firstFrame;
   elements.btnNext.disabled = state.currentFrame === state.totalFrames;
 
   // Sync step dots
   const dots = elements.steps.querySelectorAll('.s');
-  dots.forEach((dot, idx) => {
-    if (idx === state.currentFrame - 1) {
+  dots.forEach((dot, i) => {
+    if (i === idx) {
       dot.classList.add('on');
     } else {
       dot.classList.remove('on');
@@ -58,9 +59,8 @@ export function startAutoPlay(state, elements, playAudioPreview, stopAudioPrevie
   }
 
 
-  // RULE 10: Timelines totaling exactly 60 seconds
+  // Timelines totaling exactly 60 seconds (no intro — starts on Q1)
   const timeline = [
-    { frame: 1, duration: state.timings.intro * 1000 },
     { frame: 2, duration: state.timings.p1 * 1000 },
     { frame: 3, duration: state.timings.a1 * 1000 },
     { frame: 4, duration: state.timings.p2 * 1000 },
@@ -79,7 +79,7 @@ export function startAutoPlay(state, elements, playAudioPreview, stopAudioPrevie
     }
 
     const step = timeline[currentStep];
-    for (let i = 1; i <= 6; i++) {
+    for (let i = state.firstFrame; i <= state.totalFrames; i++) {
       document.getElementById(`frame-${i}`).hidden = i !== step.frame;
     }
     state.currentFrame = step.frame;
