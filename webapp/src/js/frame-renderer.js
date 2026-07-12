@@ -99,6 +99,11 @@ export function renderFrameQuestion(q, imgCont, imgEl, txtEl, optCont) {
   if (q.equation && q.equation.trim().length > 0) {
     txtEl.className = 'eq-lines';
     const rows = q.equation.split('\n').map(r => r.trim()).filter(r => r.length > 0);
+    // Shrink tall/long equations so all 4 answer options still fit inside the fixed card
+    // (otherwise the second option row is clipped by the card's overflow:hidden).
+    const maxLen = rows.reduce((m, r) => Math.max(m, r.length), 0);
+    if (rows.length >= 5 || maxLen > 15) txtEl.classList.add('xcompact');
+    else if (rows.length >= 4 || maxLen > 11) txtEl.classList.add('compact');
     txtEl.innerHTML = rows.map(r => `<div class="eq-line">${r}</div>`).join('');
   } 
   else {

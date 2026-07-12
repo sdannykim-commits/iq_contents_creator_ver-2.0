@@ -65,3 +65,4 @@ reports/*/*.mp4
 *.backup
 secrets/
 credentials/
+service-account*.json

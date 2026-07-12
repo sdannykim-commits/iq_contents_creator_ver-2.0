@@ -429,6 +429,15 @@ textarea { resize: vertical; line-height: 1.5; }
 .eq-lines { display: flex; flex-direction: column; gap: 14px; width: 100%; align-items: center; margin: 20px 0; }
 .eq-lines .eq-line { font-size: 34px; font-weight: 900; text-align: center; letter-spacing: 2px; color: #fff; }
 .eq-lines .eq-line:last-child { color: var(--gold) !important; font-size: 38px; font-weight: 900; text-shadow: 0 0 15px rgba(255, 203, 61, 0.45); }
+/* Compact tiers for tall/long equation puzzles so all 4 options always fit inside the card.
+   Only applied by frame-renderer when the equation has many rows or long lines; the default
+   look above is unchanged for normal puzzles. */
+.eq-lines.compact { gap: 9px; margin: 10px 0; }
+.eq-lines.compact .eq-line { font-size: 26px; letter-spacing: 1px; }
+.eq-lines.compact .eq-line:last-child { font-size: 30px; }
+.eq-lines.xcompact { gap: 6px; margin: 6px 0; }
+.eq-lines.xcompact .eq-line { font-size: 20px; letter-spacing: 0.5px; }
+.eq-lines.xcompact .eq-line:last-child { font-size: 23px; }
 
 
 .q-image-wrap {
