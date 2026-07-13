@@ -173,12 +173,15 @@ export async function renderVideo(state, elements, updateProgress) {
 
     await state.ffmpeg.writeFile('slides.txt', slidesTxt);
     
-    // Render video
+    // Render video. Constant 30fps + a keyframe every second (-g 30 + forced keyframes) so the
+    // MP4 is smoothly seekable — without this, x264 emitted only ~2 keyframes for the whole clip
+    // and scrubbing snapped back to the start (looked like a frozen timer / wrong question).
     const audioArgs = hasAudio ? ['-i', 'bgm.wav', '-c:a', 'aac', '-shortest'] : [];
     await state.ffmpeg.exec([
       '-f', 'concat', '-safe', '0', '-i', 'slides.txt',
       ...audioArgs,
       '-vsync', 'vfr', '-pix_fmt', 'yuv420p', '-c:v', 'libx264',
+      '-g', '30', '-keyint_min', '30', '-force_key_frames', 'expr:gte(t,n_forced)',
       '-vf', 'scale=1080:1920', '-r', '30', 'portrait.mp4'
     ]);
     
