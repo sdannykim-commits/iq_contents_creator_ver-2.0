@@ -133,6 +133,28 @@ export function generateFrames(state, elements, updateStepLabel) {
   fitFrame(targetFrame); // auto-fit the visible frame after (re)rendering
 }
 
+// Draws one visual-matrix cell as an inline SVG shape (circle/square/diamond/triangle),
+// with an optional fill (solid/outline/hatched) and a small corner dot (TL/TR/BL/BR).
+// This is what makes uploaded VISUAL IQ matrices render as shapes instead of garbled text.
+function shapeCellSvg(cell) {
+  const V = '#8fa4ff';                 // shape stroke
+  const R = '#ff5470';                 // corner dot
+  const fillMap = { solid: V, hatched: 'rgba(143,164,255,0.30)', outline: 'none' };
+  const fill = fillMap[(cell.fill || 'outline').toLowerCase()] || 'none';
+  const sw = 3.5;
+  let el;
+  switch ((cell.shape || '').toLowerCase()) {
+    case 'square':   el = `<rect x="10" y="10" width="28" height="28" rx="2" fill="${fill}" stroke="${V}" stroke-width="${sw}"/>`; break;
+    case 'diamond':  el = `<rect x="11" y="11" width="26" height="26" transform="rotate(45 24 24)" fill="${fill}" stroke="${V}" stroke-width="${sw}"/>`; break;
+    case 'triangle': el = `<polygon points="24,9 39,37 9,37" fill="${fill}" stroke="${V}" stroke-width="${sw}" stroke-linejoin="round"/>`; break;
+    case 'circle':
+    default:         el = `<circle cx="24" cy="24" r="14" fill="${fill}" stroke="${V}" stroke-width="${sw}"/>`;
+  }
+  const dp = { TL: [11, 11], TR: [37, 11], BL: [11, 37], BR: [37, 37] }[(cell.dot || '').toUpperCase()];
+  const dot = dp ? `<circle cx="${dp[0]}" cy="${dp[1]}" r="4.5" fill="${R}"/>` : '';
+  return `<svg viewBox="0 0 48 48" preserveAspectRatio="xMidYMid meet">${el}${dot}</svg>`;
+}
+
 // Renders individual question data onto its respective DOM fields
 export function renderFrameQuestion(q, imgCont, imgEl, txtEl, optCont) {
   // Force 100% template-based text/grid component rendering. Never output raw screenshot images!
@@ -153,7 +175,13 @@ export function renderFrameQuestion(q, imgCont, imgEl, txtEl, optCont) {
     
     if (q.type === 'matrix') {
       txtEl.className = 'matrix-grid';
-      if (q.matrixData && q.matrixData.length > 0) {
+      if (Array.isArray(q.matrixShapes) && q.matrixShapes.length >= 9) {
+        // Visual shape matrix → render real SVG shapes (not text descriptions).
+        txtEl.innerHTML = q.matrixShapes.slice(0, 9).map(cell => {
+          const isQ = !cell || cell.shape === '?' || String(cell.shape || '').trim() === '';
+          return `<div class="g ${isQ ? 'q' : ''} ${isQ ? '' : 'g-shape'}">${isQ ? '?' : shapeCellSvg(cell)}</div>`;
+        }).join('');
+      } else if (q.matrixData && q.matrixData.length > 0) {
         txtEl.innerHTML = q.matrixData.map(val => `<div class="g ${val === '?' ? 'q' : ''}">${val}</div>`).join('');
       } else {
         txtEl.innerHTML = `

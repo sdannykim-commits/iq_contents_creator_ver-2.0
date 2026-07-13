@@ -225,22 +225,27 @@ export async function fetchClaudeVisionRebuilder(base64Data, mediaType) {
 You are an expert puzzle restorer.
 Your task is to analyze the uploaded screenshot of an intelligence puzzle (which might have noise, mobile UI status bars, or screenshot borders).
 1. Discard all UI buttons, smartphone battery/wifi indicators, or unrelated noise.
-2. Deduce and extract the exact logical equations, grid cells, or number series from the image.
-3. Classify the puzzle type as "numerical" (series sequence), "matrix" (3x3 grid cells), "analogy" (word/index match), or "text" (stacked trick equations).
+2. Deduce and extract the exact logical equations, grid cells, number series, OR visual shapes from the image.
+3. Classify the puzzle type as "numerical" (series sequence), "matrix" (3x3 grid), "analogy" (word/index match), or "text" (stacked trick equations).
 4. Parse the 4 choices (options), the correct answer, and provide a clear logic explanation.
+
+VISUAL SHAPE MATRICES (very important): If the 3x3 grid is made of SHAPES (circle, square, diamond, triangle — possibly filled, outlined, or hatched, and possibly with a small colored dot in a corner), you MUST set "type":"matrix" and output "matrixShapes" — an array of 9 cells in reading order. Each cell is:
+  { "shape": "circle|square|diamond|triangle", "fill": "solid|outline|hatched", "dot": "TL|TR|BL|BR" or null }
+and the missing cell is { "shape": "?" }. In this case put the shape values into matrixShapes ONLY — do NOT stuff shape descriptions into matrixData. Keep each "options" string SHORT (max ~16 chars, e.g. "Circle, dot TR").
 
 Output MUST be a single raw JSON object matching this schema exactly:
 {
   "success": true,
-  "kind": "text", // Rebuild as clean text-based components inside our template
+  "kind": "text",
   "type": "numerical|matrix|analogy|text",
   "prompt": "Decipher the logical rule and solve.",
-  "options": ["A", "B", "C", "D"], // list of extracted choice values
+  "options": ["A", "B", "C", "D"],
   "answer": "correct_option_value",
   "explanation": "Derived mathematical or logical rule...",
-  "equation": "10 + 1 = 11\\n20 + 2 = 35...", // parsed equation lines (if text type)
-  "matrixData": ["1", "2", "3"...], // grid cells (if matrix type)
-  "sequenceData": [2, 4, 8...] // sequence numbers (if numerical type)
+  "equation": "10 + 1 = 11\\n20 + 2 = 35...", // only if text type
+  "matrixData": ["1", "2", "3"...],           // only for NUMERIC/text matrices
+  "matrixShapes": [ { "shape": "circle", "fill": "outline", "dot": "TL" }, ... 9 cells ... ], // only for VISUAL shape matrices
+  "sequenceData": [2, 4, 8...]                // only if numerical type
 }
 Do not wrap JSON in markdown block tags. Return only the raw JSON.
 `;
@@ -303,7 +308,8 @@ Do ALL of the following:
 3. Provide EXACTLY 4 "options": one MUST be identical to "answer" (as a string); the other 3 must be plausible, non-trivial distractors. No duplicates.
 4. Populate the data field matching the type:
    - numerical → "sequenceData": array ending in "?"  (e.g. [2,4,8,16,"?"])
-   - matrix    → "matrixData": 9 cells, the unknown as "?"
+   - matrix (NUMERIC) → "matrixData": 9 cells, the unknown as "?"
+   - matrix (VISUAL SHAPES) → if the draft is a shape matrix (has "matrixShapes", or its cells describe shapes like circle/square/diamond/triangle with fills or corner dots), KEEP/REBUILD "matrixShapes": an array of 9 cells, each { "shape":"circle|square|diamond|triangle", "fill":"solid|outline|hatched", "dot":"TL|TR|BL|BR" or null }, the missing cell = { "shape":"?" }. Do NOT convert shapes into text in matrixData. Make each option SHORT (e.g. "Circle, dot TR").
    - analogy   → "analogyData": 4 items, blank as "?"  (e.g. ["DOG","26","CAT","?"])
    - text      → "equation": the multi-line equations, unknown row ends with "?"
 5. Write a concise, correct "explanation" of the rule (one or two sentences).
@@ -322,6 +328,7 @@ Output MUST be a single raw JSON object EXACTLY in this shape (include only the 
   "explanation": "...",
   "equation": "line1\\nline2\\n...",
   "matrixData": ["..."],
+  "matrixShapes": [ { "shape":"circle", "fill":"outline", "dot":"TL" }, ... 9 cells ... ],
   "sequenceData": ["..."],
   "analogyData": ["..."]
 }

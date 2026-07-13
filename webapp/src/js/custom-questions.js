@@ -45,6 +45,7 @@ export class CustomQuestionManager {
       explanation: res.explanation || '',
       equation: res.equation || null,
       matrixData: res.matrixData || null,
+      matrixShapes: Array.isArray(res.matrixShapes) ? res.matrixShapes : null,
       sequenceData: res.sequenceData || null,
       analogyData: res.analogyData || null
     };
