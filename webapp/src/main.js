@@ -206,15 +206,16 @@ async function loadDailyPuzzle(navigateToQuestion = false) {
 
   let puzzle = null;
   let lastErr = null;
-  // Attempt 0 uses the date seed (stable daily puzzle). If that content was already shown
-  // (e.g. a same-date reload), retries use a randomized seed so Claude returns a different,
-  // non-repeating puzzle. Any successful Claude call is kept — we only leave Claude if it throws.
-  for (let attempt = 0; attempt < 4; attempt++) {
+  // Attempt 0 uses the date seed + web_search (best quality, but slow). If that content was
+  // already shown (same-date reload), retries use a randomized seed WITHOUT web_search so they
+  // return a different puzzle fast — no more stacking several slow searches in a row.
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const trySeed = attempt === 0 ? seed : `${seed}_r${attempt}_${Math.random().toString(36).slice(2, 8)}`;
     try {
-      const p = await fetchClaudeDailyPuzzle(trySeed);
+      const p = await fetchClaudeDailyPuzzle(trySeed, attempt === 0); // only the first try searches
       puzzle = p; // latest Claude candidate
-      if (isFreshPair(p) || attempt === 3) break;
+      if (isFreshPair(p) || attempt === MAX_ATTEMPTS - 1) break;
     } catch (err) {
       lastErr = err;
       console.warn('⚠️ Claude fetch failed — falling back to offline. Reason:', err.message);
@@ -743,19 +744,46 @@ function offlineReason(err) {
   return 'Claude unavailable';
 }
 
+// Lightweight top toast so puzzle-generation completion is obvious (auto-dismisses).
+let genToastTimer = null;
+function showToast(message, kind = 'ok') {
+  let el = document.getElementById('gen-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'gen-toast';
+    el.className = 'gen-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.toggle('warn', kind === 'warn');
+  el.classList.add('show');
+  clearTimeout(genToastTimer);
+  genToastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
 // Reflects where the current puzzle set came from so the user always knows whether
 // Claude Opus 4.8 actually produced it (live) or it fell back to the offline pool —
-// and, on fallback, WHY (e.g. credit too low, bad key, rate limit).
+// and, on fallback, WHY. Loading shows a live spinner; completion pulses + toasts.
 function setGenSource(mode, err) {
   if (!elements.genSource) return;
+  const reason = offlineReason(err);
   const map = {
-    loading: { text: '⏳ Generating via Claude Opus 4.8…', color: 'var(--text-dim)' },
-    claude:  { text: '✨ Live · Claude Opus 4.8', color: 'var(--green)' },
-    offline: { text: `⚠️ Offline — ${offlineReason(err)}`, color: 'var(--gold)' }
+    loading: { html: '<i class="fa-solid fa-circle-notch fa-spin"></i> Generating via Claude Opus 4.8…', color: 'var(--text-dim)' },
+    claude:  { html: '✨ Live · Claude Opus 4.8', color: 'var(--green)' },
+    offline: { html: `⚠️ Offline — ${reason}`, color: 'var(--gold)' }
   };
   const s = map[mode] || map.loading;
-  elements.genSource.textContent = s.text;
+  elements.genSource.innerHTML = s.html;
   elements.genSource.style.color = s.color;
+
+  // On a terminal state, pulse the badge + toast so it's clear generation finished.
+  if (mode === 'claude' || mode === 'offline') {
+    elements.genSource.classList.remove('gen-done');
+    void elements.genSource.offsetWidth; // reflow so the animation can restart
+    elements.genSource.classList.add('gen-done');
+    if (mode === 'claude') showToast("✅ Today's puzzles are ready!", 'ok');
+    else showToast(`⚠️ Using offline puzzles — ${reason}`, 'warn');
+  }
 }
 
 // Non-blocking nudge: puzzles are always generated with the uploaded track as BGM, so if the

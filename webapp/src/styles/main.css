@@ -637,6 +637,28 @@ textarea { resize: vertical; line-height: 1.5; }
   -webkit-text-fill-color: transparent;
 }
 
+/* Generation badge: completion pulse (loading spinner uses Font Awesome fa-spin) */
+@keyframes genPop { 0% { transform: scale(1); } 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
+#genSource.gen-done { display: inline-block; animation: genPop 0.5s ease; }
+#genSource i { margin-right: 4px; }
+
+/* Completion toast */
+.gen-toast {
+  position: fixed; left: 50%; top: 20px; transform: translate(-50%, -14px);
+  background: rgba(13, 20, 64, 0.96); color: #fff;
+  border: 1px solid rgba(16, 185, 129, 0.55); border-radius: 12px;
+  padding: 12px 18px; font-size: 14px; font-weight: 800;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.6); z-index: 9999;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.gen-toast.warn { border-color: rgba(255, 203, 61, 0.6); }
+.gen-toast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) {
+  #genSource.gen-done { animation: none; }
+  .gen-toast { transition: opacity 0.25s ease; }
+}
+
 /* Responsive adjustments */
 @media (max-width: 900px) {
   #app-main { grid-template-columns: 1fr; }

@@ -91,8 +91,10 @@ function parseClaudeJSON(text) {
   }
 }
 
-// Claude Opus 4.8 API Engine Integration - Generates premium high-quality questions for Q1 and Q2
-export async function fetchClaudeDailyPuzzle(seedStr) {
+// Claude Opus 4.8 API Engine Integration - Generates premium high-quality questions for Q1 and Q2.
+// useSearch=false skips the (slow) web_search tool — used for never-repeat retries so a same-date
+// reload doesn't fire several slow searches in a row.
+export async function fetchClaudeDailyPuzzle(seedStr, useSearch = true) {
   const apiKey = getClaudeApiKey();
   if (!apiKey) {
     throw new Error("Claude API Key is missing. Falling back to offline engine.");
@@ -191,10 +193,15 @@ Do not wrap JSON in markdown block tags. Return only the raw JSON.
   }
 
   let data;
-  try {
-    data = await attempt(true);
-  } catch (searchErr) {
-    console.warn('⚠️ web_search-sourced generation failed, retrying rule-based Opus 4.8:', searchErr.message);
+  if (useSearch) {
+    try {
+      data = await attempt(true);
+    } catch (searchErr) {
+      console.warn('⚠️ web_search-sourced generation failed, retrying rule-based Opus 4.8:', searchErr.message);
+      data = await attempt(false);
+    }
+  } else {
+    // Fast path (no web_search) for never-repeat retries.
     data = await attempt(false);
   }
 
