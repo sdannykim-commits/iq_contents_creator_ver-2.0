@@ -102,8 +102,8 @@
 <!-- ============ STEP 4 · MANUAL EQUATION PUZZLE (optional) ============ -->
 <section class="custom-panel" aria-label="Custom question 1 override">
   <div class="cp-head">
-    <span class="cp-title"><i class="fa-solid fa-keyboard"></i> Step 4 · Replace Question 1 by typing a puzzle (optional)</span>
-    <span class="cp-note">Type any puzzle — equation grid, number sequence, or analogy. Claude Opus 4.8 verifies it and rebuilds it into the template.</span>
+    <span class="cp-title"><i class="fa-solid fa-keyboard"></i> Step 4 · Replace Question 1 — type a puzzle or upload an image (optional)</span>
+    <span class="cp-note">Type any puzzle (equation, sequence, analogy) <b>or upload a puzzle image</b>. Either way, Claude Opus 4.8 extracts just the puzzle and rebuilds it into the template.</span>
   </div>
 
   <div class="field" style="margin-bottom: 12px;">
@@ -112,9 +112,14 @@
   </div>
 
   <div class="cp-col">
-    <label for="customText0"><b>Type your puzzle (equation, sequence, analogy…)</b></label>
+    <label for="customText0"><b>A) Type your puzzle (equation, sequence, analogy…)</b></label>
     <textarea id="customText0" rows="4" placeholder="16 x 1 = 6&#10;4 x 2 = 12&#10;2 x 3 = 10&#10;1 x 4 = ?"></textarea>
     <button class="btn btn-primary" id="btnApplyCustomText0" style="margin-top: 8px;"><i class="fa-solid fa-check"></i> Apply text puzzle</button>
+
+    <div class="cp-or">— or —</div>
+
+    <label for="customImage0"><b>B) Upload a puzzle image (JPG/PNG) — auto-extracted</b></label>
+    <input type="file" id="customImage0" accept="image/png, image/jpeg">
   </div>
 
   <div class="cp-foot" style="margin-top: 14px;">
@@ -125,8 +130,8 @@
 
 <section class="custom-panel" aria-label="Custom question 2 override">
   <div class="cp-head">
-    <span class="cp-title"><i class="fa-solid fa-keyboard"></i> Step 4 · Replace Question 2 by typing a puzzle (optional)</span>
-    <span class="cp-note">Type any puzzle — equation grid, number sequence, or analogy. Claude Opus 4.8 verifies it and rebuilds it into the template.</span>
+    <span class="cp-title"><i class="fa-solid fa-keyboard"></i> Step 4 · Replace Question 2 — type a puzzle or upload an image (optional)</span>
+    <span class="cp-note">Type any puzzle (equation, sequence, analogy) <b>or upload a puzzle image</b>. Either way, Claude Opus 4.8 extracts just the puzzle and rebuilds it into the template.</span>
   </div>
 
   <div class="field" style="margin-bottom: 12px;">
@@ -135,9 +140,14 @@
   </div>
 
   <div class="cp-col">
-    <label for="customText1"><b>Type your puzzle (equation, sequence, analogy…)</b></label>
+    <label for="customText1"><b>A) Type your puzzle (equation, sequence, analogy…)</b></label>
     <textarea id="customText1" rows="4" placeholder="16 x 1 = 6&#10;4 x 2 = 12&#10;2 x 3 = 10&#10;1 x 4 = ?"></textarea>
     <button class="btn btn-primary" id="btnApplyCustomText1" style="margin-top: 8px;"><i class="fa-solid fa-check"></i> Apply text puzzle</button>
+
+    <div class="cp-or">— or —</div>
+
+    <label for="customImage1"><b>B) Upload a puzzle image (JPG/PNG) — auto-extracted</b></label>
+    <input type="file" id="customImage1" accept="image/png, image/jpeg">
   </div>
 
   <div class="cp-foot" style="margin-top: 14px;">

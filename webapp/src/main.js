@@ -78,17 +78,19 @@ const elements = {
   // Generate panel
   genSource: document.getElementById('genSource'),
 
-  // Custom Question 1 Override (manual equation puzzle only)
+  // Custom Question 1 Override (type a puzzle OR upload an image → Vision-extracted)
   customPrompt0: document.getElementById('customPrompt0'),
   customText0: document.getElementById('customText0'),
   btnApplyCustomText0: document.getElementById('btnApplyCustomText0'),
+  customImage0: document.getElementById('customImage0'),
   btnResetCustom0: document.getElementById('btnResetCustom0'),
   customMsg0: document.getElementById('customMsg0'),
 
-  // Custom Question 2 Override (manual equation puzzle only)
+  // Custom Question 2 Override (type a puzzle OR upload an image → Vision-extracted)
   customPrompt1: document.getElementById('customPrompt1'),
   customText1: document.getElementById('customText1'),
   btnApplyCustomText1: document.getElementById('btnApplyCustomText1'),
+  customImage1: document.getElementById('customImage1'),
   btnResetCustom1: document.getElementById('btnResetCustom1'),
   customMsg1: document.getElementById('customMsg1'),
 
@@ -328,9 +330,11 @@ function setupEventListeners() {
   // image insertion is handled by the "Attach Puzzle Images" Vision path,
   // which extracts the puzzle into the template instead of pasting a raw image).
   elements.btnApplyCustomText0.addEventListener('click', () => applyCustomTextPuzzle('q1'));
+  elements.customImage0.addEventListener('change', (e) => applyCustomImagePuzzle(e, 'q1'));
   elements.btnResetCustom0.addEventListener('click', () => resetSingleOverride('q1'));
 
   elements.btnApplyCustomText1.addEventListener('click', () => applyCustomTextPuzzle('q2'));
+  elements.customImage1.addEventListener('change', (e) => applyCustomImagePuzzle(e, 'q2'));
   elements.btnResetCustom1.addEventListener('click', () => resetSingleOverride('q2'));
 
   // Playback & Navigation Controls (Modular Calls)
@@ -634,6 +638,53 @@ async function applyCustomTextPuzzle(slot) {
   generateFrames(state, elements, updateStepLabel);
 }
 
+// Reads a puzzle image and extracts ONLY the puzzle into a template-ready object:
+// Claude Vision rebuilds it, then the revision sub-agent QA-polishes it. Throws on Vision failure.
+async function extractImagePuzzle(file) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('Could not read the image file.'));
+    reader.readAsDataURL(file);
+  });
+  const base64Data = dataUrl.split(',')[1];
+  const res = await fetchClaudeVisionRebuilder(base64Data, file.type);
+  let finalPuzzle = res;
+  try {
+    finalPuzzle = await fetchClaudeRevisePuzzle(res, 'Puzzle extracted from a user-uploaded screenshot; verify the rule, answer, and 4 options.');
+  } catch (revErr) {
+    console.warn('Revision agent skipped (using raw extraction):', revErr.message);
+  }
+  return finalPuzzle;
+}
+
+// Step 4 · option B — upload a puzzle image for this slot. Same extraction as Step 3, but
+// scoped to the Replace-Question section: on success it clears this slot's typed text and the
+// Step-3 attach thumbnail so the three override paths never fight over the same question.
+async function applyCustomImagePuzzle(e, slot) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const isQ1 = slot === 'q1';
+  const msgEl = isQ1 ? elements.customMsg0 : elements.customMsg1;
+  const imgInput = isQ1 ? elements.customImage0 : elements.customImage1;
+
+  msgEl.textContent = '🤖 Extracting the puzzle from your image + QA…';
+  try {
+    const puzzle = await extractImagePuzzle(file);
+    state.customManager.setCustomRebuiltPuzzle(slot, puzzle);
+    msgEl.textContent = `✅ Image extracted into template. Answer: ${puzzle.answer}`;
+    // This slot now comes from the uploaded image — clear the typed text + Step 3 thumbnail.
+    (isQ1 ? elements.customText0 : elements.customText1).value = '';
+    resetAttachSectionFields(isQ1 ? 0 : 1);
+    generateFrames(state, elements, updateStepLabel);
+  } catch (err) {
+    console.warn('Step 4 image extraction failed:', err.message);
+    msgEl.textContent = `⚠️ Couldn't extract from image (${err.message}). Try a clearer image or the text box.`;
+  } finally {
+    imgInput.value = ''; // allow re-uploading the same file
+  }
+}
+
 // DOM-only reset of the "Replace Question X with Your Own Puzzle" (manual equation) section
 // for one slot. Does NOT touch the override itself — used both by resetSingleOverride (which
 // does clear the override) and by the "Attach Your Puzzle Images" section when it takes over
@@ -643,10 +694,12 @@ function resetReplaceSectionFields(slot, message) {
   if (isQ1) {
     elements.customPrompt0.value = '';
     elements.customText0.value = '';
+    elements.customImage0.value = '';
     elements.customMsg0.textContent = message || 'Q1 reset to automatic.';
   } else {
     elements.customPrompt1.value = '';
     elements.customText1.value = '';
+    elements.customImage1.value = '';
     elements.customMsg1.textContent = message || 'Q2 reset to automatic.';
   }
 }
