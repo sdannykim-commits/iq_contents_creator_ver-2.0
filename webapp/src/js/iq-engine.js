@@ -167,7 +167,13 @@ Do not wrap JSON in markdown block tags. Return only the raw JSON.
       body: JSON.stringify(body)
     });
     if (!response.ok) {
-      throw new Error(`HTTP error ${response.status} from Claude API`);
+      // Surface the API's actual reason (e.g. low credit / auth / rate limit), not just the code.
+      let detail = '';
+      try { const e = await response.json(); detail = (e && e.error && e.error.message) || ''; } catch (_) {}
+      const err = new Error(`HTTP ${response.status}${detail ? ' — ' + detail : ''}`);
+      err.status = response.status;
+      err.detail = detail;
+      throw err;
     }
     return response.json();
   }

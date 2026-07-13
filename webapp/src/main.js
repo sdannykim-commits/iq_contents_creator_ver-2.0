@@ -203,6 +203,7 @@ async function loadDailyPuzzle(navigateToQuestion = false) {
   setGenSource('loading');
 
   let puzzle = null;
+  let lastErr = null;
   // Attempt 0 uses the date seed (stable daily puzzle). If that content was already shown
   // (e.g. a same-date reload), retries use a randomized seed so Claude returns a different,
   // non-repeating puzzle. Any successful Claude call is kept — we only leave Claude if it throws.
@@ -213,6 +214,7 @@ async function loadDailyPuzzle(navigateToQuestion = false) {
       puzzle = p; // latest Claude candidate
       if (isFreshPair(p) || attempt === 3) break;
     } catch (err) {
+      lastErr = err;
       console.warn('⚠️ Claude fetch failed — falling back to offline. Reason:', err.message);
       break; // keep any earlier Claude candidate; if none, offline below
     }
@@ -232,7 +234,7 @@ async function loadDailyPuzzle(navigateToQuestion = false) {
   }
 
   state.dailyPuzzle = puzzle;
-  setGenSource(source);
+  setGenSource(source, lastErr);
 
   markAsSeen(puzzleSignature(puzzle.q1));
   markAsSeen(puzzleSignature(puzzle.q2));
@@ -677,14 +679,26 @@ function updateProgress(percentage, text) {
   elements.progressText.textContent = text;
 }
 
+// Maps a failed Claude call to a short, human reason shown on the offline badge.
+function offlineReason(err) {
+  const msg = ((err && (err.detail || err.message)) || '').toLowerCase();
+  const status = err && err.status;
+  if (/credit|billing|balance|quota/.test(msg)) return 'API credit too low';
+  if (status === 401 || /api key|authentication|unauthor/.test(msg)) return 'invalid/missing API key';
+  if (status === 429 || /rate limit|overloaded/.test(msg)) return 'rate limited';
+  if (/key is missing|api key is missing/.test(msg)) return 'no API key set';
+  return 'Claude unavailable';
+}
+
 // Reflects where the current puzzle set came from so the user always knows whether
-// Claude Opus 4.8 actually produced it (live) or it fell back to the offline pool.
-function setGenSource(mode) {
+// Claude Opus 4.8 actually produced it (live) or it fell back to the offline pool —
+// and, on fallback, WHY (e.g. credit too low, bad key, rate limit).
+function setGenSource(mode, err) {
   if (!elements.genSource) return;
   const map = {
     loading: { text: '⏳ Generating via Claude Opus 4.8…', color: 'var(--text-dim)' },
     claude:  { text: '✨ Live · Claude Opus 4.8', color: 'var(--green)' },
-    offline: { text: '⚠️ Offline pool (Claude unavailable)', color: 'var(--gold)' }
+    offline: { text: `⚠️ Offline — ${offlineReason(err)}`, color: 'var(--gold)' }
   };
   const s = map[mode] || map.loading;
   elements.genSource.textContent = s.text;
