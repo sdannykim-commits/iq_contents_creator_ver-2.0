@@ -2,6 +2,7 @@ import html2canvas from 'html2canvas';
 import JSZip from 'jszip';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile } from '@ffmpeg/util';
+import { fitFrame } from './frame-renderer';
 
 // Captures every active frame (frames 2..6 — the intro frame was removed) as a PNG blob.
 // Shows exactly one frame at a time (so frames don't stack in the capture) with its fade-in
@@ -74,6 +75,7 @@ async function captureSlides(elements, state, updateProgress) {
 
   for (const step of plan) {
     showOnly(step.frame);
+    fitFrame(step.frame); // auto-fit this frame's content before capturing
     if (step.count) {
       for (let s = step.count; s >= 1; s--) {
         setTimerVisual(step.frame, s, step.count);

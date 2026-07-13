@@ -118,6 +118,7 @@ General constraints:
 1. The puzzles must fall into one of these types: "numerical" (series sequence), "matrix" (3x3 grid cells), or "analogy" (word/pattern logic).
 2. Provide 4 choices (options) for each question. One choice must match the correct answer.
 3. The "prompt" field is shown ON the question card. It MUST be a SHORT, punchy call-to-action of at most ~6 words (e.g. "Find the missing number.", "Solve the grid.", "Complete the analogy."). It MUST NOT describe, hint at, or reveal the rule/logic in any way — no mention of "each row", "non-linear", "multiply", "add", etc. ALL rule details go ONLY in "explanation" (which is shown later on the answer card).
+4. LENGTH LIMITS (the card is a mobile 9:16 frame — keep content compact): a numerical series has AT MOST 7 terms (including the "?"); each of the 4 options is AT MOST 6 characters; matrix cell values are AT MOST 3 digits; analogy terms are AT MOST 10 characters; every "explanation" is AT MOST 200 characters (one or two tight sentences).
 
 Output MUST be a single raw JSON object conforming EXACTLY to this JSON structure:
 {
@@ -296,6 +297,7 @@ Do ALL of the following:
 6. The "prompt" is shown ON the question card, so it MUST be a SHORT call-to-action of at most ~6 words (e.g. "Find the missing number.") that NEVER describes, hints at, or reveals the rule. If the draft's prompt explains the logic, replace it with a short generic instruction. All rule detail belongs ONLY in "explanation".
 7. If the draft is broken, childish, or ambiguous, REWRITE it into a clean Mensa-grade puzzle of the same spirit and type.
 8. BANNED rule family: never produce letter-counting / alphabet-index gimmicks (word length, word-length squared, or A=1..Z=26 position sums/products). If the draft uses one, replace it with a genuine numeric/logical rule.
+9. LENGTH LIMITS (mobile card): series ≤ 7 terms; each option ≤ 6 chars; matrix values ≤ 3 digits; analogy terms ≤ 10 chars; "explanation" ≤ 200 chars. Trim/simplify if the draft exceeds these.
 
 Output MUST be a single raw JSON object EXACTLY in this shape (include only the data field that matches the type):
 {

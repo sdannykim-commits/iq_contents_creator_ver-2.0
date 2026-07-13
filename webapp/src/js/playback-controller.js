@@ -1,3 +1,5 @@
+import { fitFrame } from './frame-renderer';
+
 // Global timer interval reference inside this module scope
 let currentTimerInterval = null;
 
@@ -10,6 +12,7 @@ export function switchFrame(direction, state, elements, updateStepLabel) {
   document.getElementById(`frame-${newFrame}`).hidden = false;
   state.currentFrame = newFrame;
 
+  fitFrame(newFrame); // auto-fit the newly shown frame
   updateStepLabel(state, elements);
 
   // Re-start or reset countdown timer for the newly switched frame
@@ -83,6 +86,7 @@ export function startAutoPlay(state, elements, playAudioPreview, stopAudioPrevie
       document.getElementById(`frame-${i}`).hidden = i !== step.frame;
     }
     state.currentFrame = step.frame;
+    fitFrame(step.frame); // auto-fit the newly shown frame
     updateStepLabel(state, elements);
 
     // Trigger timer countdown logic for this frame step

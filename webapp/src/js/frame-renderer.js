@@ -21,6 +21,49 @@ export function updateHookDisplays(state, elements) {
   elements.hookDisplayQ2.textContent = state.hookText;
 }
 
+// Readability floor for the auto-fit scale — the puzzle never shrinks below this.
+// Paired with content caps (iq-engine) so this floor is enough for any allowed content.
+const MIN_FIT = 0.62;
+
+// Auto-fits ONE visible frame so long content never pushes the options out of the fixed card:
+//  • puzzle area (series/matrix/analogy/equation) is measured and scaled via --fit to fit the
+//    available height, clamped to MIN_FIT (readability floor);
+//  • long option values shrink a touch via --ofit;
+//  • long answer explanations shrink via --rfit.
+// The frame MUST be visible (not hidden) to measure — callers invoke this right after showing it.
+export function fitFrame(frameId) {
+  const frame = document.getElementById(`frame-${frameId}`);
+  if (!frame || frame.hidden) return;
+
+  const qd = frame.querySelector('.q-display');
+  const puz = frame.querySelector('.eq-lines, .series, .matrix-grid, .analogy');
+  if (qd && puz) {
+    puz.style.setProperty('--fit', '1');
+    const avail = qd.clientHeight;
+    const natural = puz.scrollHeight;           // reading forces reflow → reflects --fit:1
+    let fit = 1;
+    if (natural > 0 && avail > 0 && natural > avail) {
+      fit = Math.max(MIN_FIT, (avail / natural) * 0.95); // 0.95 = small breathing room
+    }
+    puz.style.setProperty('--fit', fit.toFixed(3));
+  }
+
+  // Options: numeric answers are short, but word/large-number options can be long → shrink a bit.
+  const choices = frame.querySelector('.choices');
+  if (choices) {
+    const maxOpt = [...choices.querySelectorAll('.opt-val')]
+      .reduce((m, e) => Math.max(m, (e.textContent || '').length), 0);
+    choices.style.setProperty('--ofit', maxOpt > 10 ? '0.72' : maxOpt > 6 ? '0.85' : '1');
+  }
+
+  // Answer explanation box: shrink font for long explanations so it always fits.
+  const reveal = frame.querySelector('.reveal-box');
+  if (reveal) {
+    const len = (reveal.textContent || '').length;
+    reveal.style.setProperty('--rfit', len > 240 ? '0.72' : len > 160 ? '0.86' : '1');
+  }
+}
+
 // Renders the overall 5-frame slideshow structure (Q1 → Answer 1 → Q2 → Comment → Final CTA)
 export function generateFrames(state, elements, updateStepLabel) {
   // Guard: an override can be applied while the daily puzzle is still being fetched from
@@ -87,6 +130,7 @@ export function generateFrames(state, elements, updateStepLabel) {
   }
   state.currentFrame = targetFrame;
   updateStepLabel(state, elements);
+  fitFrame(targetFrame); // auto-fit the visible frame after (re)rendering
 }
 
 // Renders individual question data onto its respective DOM fields
@@ -99,11 +143,6 @@ export function renderFrameQuestion(q, imgCont, imgEl, txtEl, optCont) {
   if (q.equation && q.equation.trim().length > 0) {
     txtEl.className = 'eq-lines';
     const rows = q.equation.split('\n').map(r => r.trim()).filter(r => r.length > 0);
-    // Shrink tall/long equations so all 4 answer options still fit inside the fixed card
-    // (otherwise the second option row is clipped by the card's overflow:hidden).
-    const maxLen = rows.reduce((m, r) => Math.max(m, r.length), 0);
-    if (rows.length >= 5 || maxLen > 15) txtEl.classList.add('xcompact');
-    else if (rows.length >= 4 || maxLen > 11) txtEl.classList.add('compact');
     txtEl.innerHTML = rows.map(r => `<div class="eq-line">${r}</div>`).join('');
   } 
   else {
