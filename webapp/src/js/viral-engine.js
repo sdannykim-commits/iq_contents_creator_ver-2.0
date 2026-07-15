@@ -76,7 +76,7 @@ const GENRE_A = [
   { name: '(a+b)×k',    f: (a, b, k) => (a + b) * k,  exp: 'Add the two numbers, then multiply by K.', usesK: true }
 ];
 
-function genGenreA(r) {
+export function genGenreA(r) {
   const fam = pick(GENRE_A, r);
   const k = fam.usesK ? randInt(r, 3, 6) : null;
   const F = (a, b) => fam.f(a, b, k);
@@ -126,7 +126,7 @@ const GENRE_B = [
   { name: 'n³ − n',    g: (n) => n * n * n - n,   exp: 'Each number n maps to n³ − n.' }
 ];
 
-function genGenreB(r) {
+export function genGenreB(r) {
   const fam = pick(GENRE_B, r);
   // 4 distinct n values (2..9), rows displayed, the last hidden.
   const ns = shuffle([2, 3, 4, 5, 6, 7, 8, 9], r).slice(0, 4);
@@ -150,7 +150,7 @@ function genGenreB(r) {
 // ── GENRE C · order-of-operations (PEMDAS) trap ─────────────────────────────
 // A single expression whose correct (precedence) answer differs from the naive
 // left-to-right answer. Unambiguous — the answer is mathematically unique.
-function genGenreC(r) {
+export function genGenreC(r) {
   const a = randInt(r, 2, 12);
   const b = randInt(r, 2, 9);
   const c = randInt(r, 2, 9);

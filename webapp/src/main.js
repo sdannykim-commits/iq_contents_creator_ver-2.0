@@ -1,6 +1,5 @@
-import { fetchClaudeDailyPuzzle, generateLocalSeededPuzzle, fetchClaudeVisionRebuilder, fetchClaudeRevisePuzzle, fetchClaudeTopHooks, markAsSeen, isAlreadySeen, puzzleSignature } from './js/iq-engine';
-import { generateViralSeededPuzzle, validateViralPuzzle, repairViralSlot } from './js/viral-engine';
-import { generateIqTestSeededPuzzle } from './js/iqtest-engine';
+import { fetchClaudeVisionRebuilder, fetchClaudeRevisePuzzle, fetchClaudeTopHooks, markAsSeen, isAlreadySeen, puzzleSignature } from './js/iq-engine';
+import { generateDailyFromPool } from './js/logic-pool';
 import { getDailyCTA } from './js/cta-copy';
 import { AudioClipProcessor } from './js/audio-clip';
 import { solveEquationPuzzle } from './js/logic-solver';
@@ -26,7 +25,6 @@ const state = {
   captionText: '',
   cta: null, // Rotated daily CTA copy
   shuffleOffset: 0,
-  puzzleMode: 'viral', // 'viral' (trick-equation Shorts style) | 'rigorous' (classic Mensa)
   timings: {
     p1: 24,
     a1: 6,
@@ -71,7 +69,6 @@ const elements = {
 
   // Generate panel
   genSource: document.getElementById('genSource'),
-  puzzleMode: document.getElementById('puzzleMode'),
 
   // Custom Question 1 Override (type a puzzle OR upload an image → Vision-extracted)
   customPrompt0: document.getElementById('customPrompt0'),
@@ -174,9 +171,10 @@ function isFreshPair(p) {
   return s1 !== s2 && !isAlreadySeen(s1) && !isAlreadySeen(s2);
 }
 
-// Load daily logic puzzle. Prefers Claude Opus 4.8 and NEVER silently degrades to the offline
-// pool just because a puzzle repeated: on a repeat it re-calls Claude with a varied seed to get
-// a genuinely different puzzle. Offline is a true last resort (Claude unreachable) only.
+// Load the daily 2-puzzle set. The questions are drawn randomly from the unified logic pool
+// (all learned logics: trick families + iqspark.digital logics) and vary only numbers/shapes —
+// no LLM invents them, each logic's difficulty is preserved, and a varied seed is retried until
+// the pair is fresh so the same problem never repeats.
 async function loadDailyPuzzle(navigateToQuestion = false) {
   // Never regenerate underneath a running auto-play/countdown — that leaves the timer frozen.
   if (state.isPlayingAutoPlay) stopAutoPlay(state, elements, stopAudioPreview);
@@ -196,60 +194,19 @@ async function loadDailyPuzzle(navigateToQuestion = false) {
   elements.framePlaceholder.innerHTML = `<span class="placeholder-icon">🤖</span><p>Generating high-IQ logical puzzle<br/>via Claude Opus 4.8 API...</p>`;
   setGenSource('loading');
 
+  // The daily 2 puzzles are drawn RANDOMLY from the unified logic pool (all analysed logics:
+  // trick families + iqspark.digital logics), varying only numbers/shapes — no LLM invents them,
+  // and each original logic's difficulty is preserved. Retry with a varied seed until the pair is
+  // fresh (q1 ≠ q2 and neither was shown before), so the same problem never repeats.
   let puzzle = null;
-  let lastErr = null;
-  let source;
-
-  if (state.puzzleMode === 'iqtest') {
-    // IQ Test mode is rule-based & deterministic — it reproduces the iqspark.digital question
-    // logics exactly and varies only the numbers/shapes by date seed. No network, no deviation.
-    for (let i = 0; i < 40; i++) {
-      puzzle = generateIqTestSeededPuzzle(i === 0 ? seed : `${seed}_v${i}`);
-      if (isFreshPair(puzzle)) break;
-    }
-    source = 'iqtest';
-  } else {
-    // Attempt 0 uses the date seed + web_search (best quality, but slow). If that content was
-    // already shown (same-date reload), retries use a randomized seed WITHOUT web_search so they
-    // return a different puzzle fast — no more stacking several slow searches in a row.
-    const MAX_ATTEMPTS = 3;
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const trySeed = attempt === 0 ? seed : `${seed}_r${attempt}_${Math.random().toString(36).slice(2, 8)}`;
-      try {
-        // viral mode is fully generated (no web_search needed); rigorous mode searches on the first try.
-        const p = await fetchClaudeDailyPuzzle(trySeed, state.puzzleMode !== 'viral' && attempt === 0, state.puzzleMode);
-        // Defensibility net: if Claude's viral puzzle isn't provably unique, swap that slot for a
-        // deterministic rule-family puzzle (unique by construction) so the pinned answer is safe.
-        if (state.puzzleMode === 'viral' && p) {
-          if (!validateViralPuzzle(p.q1)) { p.q1 = repairViralSlot('q1', trySeed); console.warn('⚠️ Q1 viral puzzle was ambiguous — replaced with deterministic rule-family puzzle.'); }
-          if (!validateViralPuzzle(p.q2)) { p.q2 = repairViralSlot('q2', trySeed); console.warn('⚠️ Q2 viral puzzle was ambiguous — replaced with deterministic rule-family puzzle.'); }
-        }
-        puzzle = p; // latest Claude candidate
-        if (isFreshPair(p) || attempt === MAX_ATTEMPTS - 1) break;
-      } catch (err) {
-        lastErr = err;
-        console.warn('⚠️ Claude fetch failed — falling back to offline. Reason:', err.message);
-        break; // keep any earlier Claude candidate; if none, offline below
-      }
-    }
-
-    if (puzzle) {
-      source = 'claude';
-      console.log('✨ Daily puzzle generated live via Claude Opus 4.8 API!', puzzle);
-    } else {
-      // Offline last resort — pick a non-repeating pair. In viral mode the deterministic viral
-      // rule-family generator mirrors the online style; rigorous mode uses the Mensa pool.
-      const offlineGen = state.puzzleMode === 'viral' ? generateViralSeededPuzzle : generateLocalSeededPuzzle;
-      for (let i = 0; i < 40; i++) {
-        puzzle = offlineGen(i === 0 ? seed : `${seed}_off${i}`);
-        if (isFreshPair(puzzle)) break;
-      }
-      source = 'offline';
-    }
+  for (let i = 0; i < 60; i++) {
+    puzzle = generateDailyFromPool(i === 0 ? seed : `${seed}_v${i}`);
+    if (isFreshPair(puzzle)) break;
   }
+  const source = 'pool';
 
   state.dailyPuzzle = puzzle;
-  setGenSource(source, lastErr);
+  setGenSource(source);
 
   markAsSeen(puzzleSignature(puzzle.q1));
   markAsSeen(puzzleSignature(puzzle.q2));
@@ -296,17 +253,6 @@ function setupEventListeners() {
     state.shuffleOffset = 0;
     loadDailyPuzzle(true); // 👈 Pass true to slide to Q1 instantly!
   });
-
-  // Puzzle style toggle — 🔥 Viral trick vs 🧠 Mensa rigorous. Switching regenerates today's set.
-  if (elements.puzzleMode) {
-    elements.puzzleMode.value = state.puzzleMode;
-    elements.puzzleMode.addEventListener('change', () => {
-      state.puzzleMode = elements.puzzleMode.value;
-      clearSlotOverride(0, 'Puzzle style changed — override cleared.', false);
-      clearSlotOverride(1, 'Puzzle style changed — override cleared.', false);
-      loadDailyPuzzle(true);
-    });
-  }
 
   elements.btnResetHistory.addEventListener('click', () => {
     localStorage.removeItem('iqspark_seen_v2');
@@ -530,7 +476,7 @@ async function applyCustomTextPuzzle(slot) {
     const context = local.success
       ? `User typed a stacked-equation puzzle. A local solver derived answer=${local.answer} using rule "${local.ruleName}". Verify and produce 4 real numeric options.`
       : `User typed a puzzle that is NOT a simple equation grid. Infer the intended rule and rebuild it cleanly.`;
-    const revised = await fetchClaudeRevisePuzzle(draft, context, state.puzzleMode);
+    const revised = await fetchClaudeRevisePuzzle(draft, context, 'viral');
     if (prompt) revised.prompt = prompt; // preserve the user's own prompt wording
     state.customManager.setCustomRebuiltPuzzle(slot, revised);
     msgEl.textContent = `✅ Applied (QA-verified). Answer: ${revised.answer}`;
@@ -574,7 +520,7 @@ async function extractImagePuzzle(file) {
   const res = await fetchClaudeVisionRebuilder(base64Data, file.type);
   let finalPuzzle = res;
   try {
-    finalPuzzle = await fetchClaudeRevisePuzzle(res, 'Puzzle extracted from a user-uploaded screenshot; verify the rule, answer, and 4 options.', state.puzzleMode);
+    finalPuzzle = await fetchClaudeRevisePuzzle(res, 'Puzzle extracted from a user-uploaded screenshot; verify the rule, answer, and 4 options.', 'viral');
   } catch (revErr) {
     console.warn('Revision agent skipped (using raw extraction):', revErr.message);
   }
@@ -648,17 +594,6 @@ function updateProgress(percentage, text) {
   elements.progressText.textContent = text;
 }
 
-// Maps a failed Claude call to a short, human reason shown on the offline badge.
-function offlineReason(err) {
-  const msg = ((err && (err.detail || err.message)) || '').toLowerCase();
-  const status = err && err.status;
-  if (/credit|billing|balance|quota/.test(msg)) return 'API credit too low';
-  if (status === 401 || /api key|authentication|unauthor/.test(msg)) return 'invalid/missing API key';
-  if (status === 429 || /rate limit|overloaded/.test(msg)) return 'rate limited';
-  if (/key is missing|api key is missing/.test(msg)) return 'no API key set';
-  return 'Claude unavailable';
-}
-
 // Lightweight top toast so puzzle-generation completion is obvious (auto-dismisses).
 let genToastTimer = null;
 function showToast(message, kind = 'ok') {
@@ -676,30 +611,24 @@ function showToast(message, kind = 'ok') {
   genToastTimer = setTimeout(() => el.classList.remove('show'), 2600);
 }
 
-// Reflects where the current puzzle set came from so the user always knows whether
-// Claude Opus 4.8 actually produced it (live) or it fell back to the offline pool —
-// and, on fallback, WHY. Loading shows a live spinner; completion pulses + toasts.
-function setGenSource(mode, err) {
+// Reflects how the current puzzle set was produced. The daily 2 questions are drawn
+// from the unified logic pool (rule-based, deterministic per day); loading shows a
+// brief spinner and completion pulses the badge + toasts.
+function setGenSource(mode) {
   if (!elements.genSource) return;
-  const reason = offlineReason(err);
   const map = {
-    loading: { html: '<i class="fa-solid fa-circle-notch fa-spin"></i> Generating via Claude Opus 4.8…', color: 'var(--text-dim)' },
-    claude:  { html: '✨ Live · Claude Opus 4.8', color: 'var(--green)' },
-    iqtest:  { html: '🧩 IQ Test · rule-based (daily variation)', color: 'var(--green)' },
-    offline: { html: `⚠️ Offline — ${reason}`, color: 'var(--gold)' }
+    loading: { html: '<i class="fa-solid fa-circle-notch fa-spin"></i> Generating today\'s set…', color: 'var(--text-dim)' },
+    pool:    { html: '🧩 Daily set · from the learned logic pool', color: 'var(--green)' }
   };
   const s = map[mode] || map.loading;
   elements.genSource.innerHTML = s.html;
   elements.genSource.style.color = s.color;
 
-  // On a terminal state, pulse the badge + toast so it's clear generation finished.
-  if (mode === 'claude' || mode === 'offline' || mode === 'iqtest') {
+  if (mode === 'pool') {
     elements.genSource.classList.remove('gen-done');
     void elements.genSource.offsetWidth; // reflow so the animation can restart
     elements.genSource.classList.add('gen-done');
-    if (mode === 'claude') showToast("✅ Today's puzzles are ready!", 'ok');
-    else if (mode === 'iqtest') showToast("✅ Today's IQ Test set is ready!", 'ok');
-    else showToast(`⚠️ Using offline puzzles — ${reason}`, 'warn');
+    showToast("✅ Today's 2 puzzles are ready!", 'ok');
   }
 }
 
