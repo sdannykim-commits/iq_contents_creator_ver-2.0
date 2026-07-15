@@ -40,7 +40,12 @@ export function fitFrame(frameId) {
   if (qd && puz) {
     puz.style.setProperty('--fit', '1');
     const avail = qd.clientHeight;
-    const natural = puz.scrollHeight;           // reading forces reflow → reflects --fit:1
+    // scrollHeight EXCLUDES the element's own vertical margins (e.g. .eq-lines has margin:20px 0),
+    // so add them back — otherwise a puzzle can be measured ~40px short and overflow/clip a whole
+    // row (the missing margin ≈ one equation line). Margins scale with --fit, measured here at 1.
+    const cs = getComputedStyle(puz);
+    const margins = (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+    const natural = puz.scrollHeight + margins;  // reading forces reflow → reflects --fit:1
     let fit = 1;
     if (natural > 0 && avail > 0 && natural > avail) {
       fit = Math.max(MIN_FIT, (avail / natural) * 0.95); // 0.95 = small breathing room
