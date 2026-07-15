@@ -94,13 +94,13 @@ function parseClaudeJSON(text) {
 // Claude Opus 4.8 API Engine Integration - Generates premium high-quality questions for Q1 and Q2.
 // useSearch=false skips the (slow) web_search tool — used for never-repeat retries so a same-date
 // reload doesn't fire several slow searches in a row.
-export async function fetchClaudeDailyPuzzle(seedStr, useSearch = true) {
+export async function fetchClaudeDailyPuzzle(seedStr, useSearch = true, mode = 'rigorous') {
   const apiKey = getClaudeApiKey();
   if (!apiKey) {
     throw new Error("Claude API Key is missing. Falling back to offline engine.");
   }
 
-  const systemPrompt = `
+  const rigorousPrompt = `
 You are a world-class cognitive psychologist and puzzle designer for the high-IQ community (Mensa, Raven's Progressive Matrices).
 Generate two logical puzzles (q1 and q2) inspired by real high-IQ test patterns.
 
@@ -148,7 +148,39 @@ Output MUST be a single raw JSON object conforming EXACTLY to this JSON structur
 Do not wrap JSON in markdown block tags. Return only the raw JSON.
 `;
 
-  const userMsg = `Generate a completely unique, original, high-IQ logical puzzle set (q1 + q2). Prefer sourcing genuine IQ/Mensa test questions via web_search when it strengthens the pair. Seed signature: ${seedStr}`;
+  // VIRAL mode — the "trick equation" style that actually goes viral on Shorts / live streams
+  // (the ones that flood comments with "60", "29", "why 40"). One clean, UNIQUE, defensible rule
+  // per puzzle (so our answer can't be roasted as wrong). Genuinely-ambiguous bait is banned.
+  const viralPrompt = `
+You are a viral short-form puzzle designer. Produce two "trick math" puzzles (q1 and q2) in the style that dominates YouTube Shorts / TikTok IQ live streams — they LOOK trivially easy but hide a rule most people miss, so viewers argue in the comments.
+
+Pick TWO DIFFERENT families (one for q1, one for q2) from this bank, and generate them with FRESH numbers every time:
+A) HIDDEN-RULE GRID — rows shown as "a + b = result" but the real rule combines a & b, e.g. a×b+a, a×b+b, a×(a+b), a+b+a×b, a²+b, or (a+b)×K. Show 3 solved rows + a final "a + b = ?" row. Always display the "+" sign (that's the trick).
+B) SINGLE-NUMBER MAPPING — rows shown as "n = value" following one map, e.g. n×(n+1), n×(n−1), n×(n−1)×2, n², n×(n+2), or n³−n. Show 3 solved rows + a final "n = ?" row.
+C) ORDER-OF-OPERATIONS TRAP — one expression like "9 + 6 × 4 − 5 = ?" whose correct (precedence) answer differs from the naive left-to-right answer.
+
+HARD RULES:
+1. Each puzzle MUST have exactly ONE rule that cleanly fits every shown row and UNIQUELY determines the hidden answer. NEVER produce a genuinely ambiguous puzzle where several different rules give different answers (e.g. avoid the contested "16×1=6" / "3+2=8" style). Our pinned answer must be defensible.
+1a. ANTI-AMBIGUITY (critical): For grid family A, VARY the two operands independently across the solved rows — do NOT keep a fixed relationship such as b = a+1 in every row (e.g. NEVER "2+3, 3+4, 4+5", which many rules fit at once). Choose (a,b) pairs so that the 3 solved rows already rule out every other rule in the bank; then double-check that no OTHER listed rule reproduces all 3 solved rows, and if one does, change the numbers.
+2. "type" is ALWAYS "text". Put the rows/expression in "equation" (newline-separated for A and B; a single line for C). The last row's unknown ends with "?".
+3. Provide EXACTLY 4 "options" as strings. One MUST equal "answer". For A/C, include the NAIVE wrong answer (plain a+b, or left-to-right) as one distractor — that's the comment bait.
+4. "prompt" is shown ON the card: a SHORT punchy call-to-action of at most ~5 words that does NOT reveal the rule (e.g. "Crack the hidden rule.", "Mind the order.").
+5. "explanation" (shown later on the answer card) states the exact rule in one short sentence.
+6. LENGTH LIMITS (mobile 9:16 card): at most 4 rows; each option at most 6 characters; results at most 4 digits.
+
+Output MUST be a single raw JSON object EXACTLY in this shape:
+{
+  "q1": { "type": "text", "prompt": "...", "options": ["...","...","...","..."], "answer": "...", "explanation": "...", "equation": "line1\\nline2\\nline3\\nline4" },
+  "q2": { "type": "text", "prompt": "...", "options": ["...","...","...","..."], "answer": "...", "explanation": "...", "equation": "..." }
+}
+Do not wrap JSON in markdown block tags. Return only the raw JSON.
+`;
+
+  const systemPrompt = mode === 'viral' ? viralPrompt : rigorousPrompt;
+
+  const userMsg = mode === 'viral'
+    ? `Generate two DIFFERENT viral trick puzzles (q1 + q2) with brand-new numbers, following the rule families exactly. Each must have a single unique defensible rule. Variation seed: ${seedStr}`
+    : `Generate a completely unique, original, high-IQ logical puzzle set (q1 + q2). Prefer sourcing genuine IQ/Mensa test questions via web_search when it strengthens the pair. Seed signature: ${seedStr}`;
 
   // Fire the request. `useSearch` first pulls real questions off the web; if the tool is
   // unavailable on this key (or the request errors), we transparently retry the plain
@@ -291,7 +323,7 @@ Do not wrap JSON in markdown block tags. Return only the raw JSON.
 // (freshly extracted from an image, or typed by the user) and polishes it into a clean,
 // logically-verified, template-ready object. This is the "수정 서브 에이전트" — it raises
 // the completeness of anything that gets adapted into the IQ Spark template.
-export async function fetchClaudeRevisePuzzle(draft, sourceContext = '') {
+export async function fetchClaudeRevisePuzzle(draft, sourceContext = '', mode = 'rigorous') {
   const apiKey = getClaudeApiKey();
   if (!apiKey) {
     throw new Error("Claude API Key is missing for the revision agent.");
@@ -335,13 +367,24 @@ Output MUST be a single raw JSON object EXACTLY in this shape (include only the 
 Do not wrap JSON in markdown block tags. Return only the raw JSON.
 `;
 
+  // In VIRAL mode, stop the QA agent from "rigorizing" trick equations. These overrides
+  // supersede the rigor clauses above: keep the trick spirit, only reject GENUINE ambiguity.
+  const viralOverride = `
+VIRAL MODE OVERRIDES (these supersede any conflicting rule above):
+- KEEP the trick/viral spirit. Do NOT convert a trick equation into a "rigorous Mensa" puzzle.
+- The puzzle only needs ONE clean rule that fits every shown row (a×b+a, (a+b)×K, n×(n+1), order-of-operations, etc.). Do not demand deep Mensa difficulty.
+- Trick equations that LOOK like simple addition but hide a rule are ENCOURAGED, not banned. Include the naive wrong answer as a distractor.
+- Only reject/rewrite if the puzzle is GENUINELY ambiguous (several different rules give different answers) — then pick the single most standard rule and set "answer" to match it.
+`;
+  const finalPrompt = mode === 'viral' ? systemPrompt + viralOverride : systemPrompt;
+
   const response = await fetch(`${getAnthropicBase()}/v1/messages`, {
     method: 'POST',
     headers: anthropicHeaders(apiKey),
     body: JSON.stringify({
       model: 'claude-opus-4-8',
       max_tokens: 1500,
-      system: systemPrompt,
+      system: finalPrompt,
       messages: [{
         role: 'user',
         content: `Context: ${sourceContext || 'none'}\n\nDRAFT puzzle (JSON):\n${JSON.stringify(draft)}\n\nReturn the revised, QA-verified puzzle as raw JSON.`

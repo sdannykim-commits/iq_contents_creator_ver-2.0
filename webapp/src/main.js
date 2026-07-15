@@ -1,4 +1,5 @@
 import { fetchClaudeDailyPuzzle, generateLocalSeededPuzzle, fetchClaudeVisionRebuilder, fetchClaudeRevisePuzzle, fetchClaudeTopHooks, markAsSeen, isAlreadySeen, puzzleSignature } from './js/iq-engine';
+import { generateViralSeededPuzzle, validateViralPuzzle, repairViralSlot } from './js/viral-engine';
 import { getDailyCTA } from './js/cta-copy';
 import { AudioClipProcessor } from './js/audio-clip';
 import { solveEquationPuzzle } from './js/logic-solver';
@@ -24,6 +25,7 @@ const state = {
   captionText: '',
   cta: null, // Rotated daily CTA copy
   shuffleOffset: 0,
+  puzzleMode: 'viral', // 'viral' (trick-equation Shorts style) | 'rigorous' (classic Mensa)
   timings: {
     p1: 24,
     a1: 6,
@@ -77,6 +79,7 @@ const elements = {
 
   // Generate panel
   genSource: document.getElementById('genSource'),
+  puzzleMode: document.getElementById('puzzleMode'),
 
   // Custom Question 1 Override (type a puzzle OR upload an image → Vision-extracted)
   customPrompt0: document.getElementById('customPrompt0'),
@@ -213,7 +216,14 @@ async function loadDailyPuzzle(navigateToQuestion = false) {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const trySeed = attempt === 0 ? seed : `${seed}_r${attempt}_${Math.random().toString(36).slice(2, 8)}`;
     try {
-      const p = await fetchClaudeDailyPuzzle(trySeed, attempt === 0); // only the first try searches
+      // viral mode is fully generated (no web_search needed); rigorous mode searches on the first try.
+      const p = await fetchClaudeDailyPuzzle(trySeed, state.puzzleMode !== 'viral' && attempt === 0, state.puzzleMode);
+      // Defensibility net: if Claude's viral puzzle isn't provably unique, swap that slot for a
+      // deterministic rule-family puzzle (unique by construction) so the pinned answer is safe.
+      if (state.puzzleMode === 'viral' && p) {
+        if (!validateViralPuzzle(p.q1)) { p.q1 = repairViralSlot('q1', trySeed); console.warn('⚠️ Q1 viral puzzle was ambiguous — replaced with deterministic rule-family puzzle.'); }
+        if (!validateViralPuzzle(p.q2)) { p.q2 = repairViralSlot('q2', trySeed); console.warn('⚠️ Q2 viral puzzle was ambiguous — replaced with deterministic rule-family puzzle.'); }
+      }
       puzzle = p; // latest Claude candidate
       if (isFreshPair(p) || attempt === MAX_ATTEMPTS - 1) break;
     } catch (err) {
@@ -228,9 +238,11 @@ async function loadDailyPuzzle(navigateToQuestion = false) {
     source = 'claude';
     console.log('✨ Daily puzzle generated live via Claude Opus 4.8 API!', puzzle);
   } else {
-    // Offline last resort — pick a non-repeating numerical+matrix pair from the cleaned pool.
+    // Offline last resort — pick a non-repeating pair. In viral mode the deterministic viral
+    // rule-family generator mirrors the online style; rigorous mode uses the Mensa pool.
+    const offlineGen = state.puzzleMode === 'viral' ? generateViralSeededPuzzle : generateLocalSeededPuzzle;
     for (let i = 0; i < 40; i++) {
-      puzzle = generateLocalSeededPuzzle(i === 0 ? seed : `${seed}_off${i}`);
+      puzzle = offlineGen(i === 0 ? seed : `${seed}_off${i}`);
       if (isFreshPair(puzzle)) break;
     }
     source = 'offline';
@@ -286,6 +298,19 @@ function setupEventListeners() {
     state.shuffleOffset = 0;
     loadDailyPuzzle(true); // 👈 Pass true to slide to Q1 instantly!
   });
+
+  // Puzzle style toggle — 🔥 Viral trick vs 🧠 Mensa rigorous. Switching regenerates today's set.
+  if (elements.puzzleMode) {
+    elements.puzzleMode.value = state.puzzleMode;
+    elements.puzzleMode.addEventListener('change', () => {
+      state.puzzleMode = elements.puzzleMode.value;
+      clearPriorityUpload(0);
+      clearPriorityUpload(1);
+      resetReplaceSectionFields('q1', 'Puzzle style changed — override cleared.');
+      resetReplaceSectionFields('q2', 'Puzzle style changed — override cleared.');
+      loadDailyPuzzle(true);
+    });
+  }
 
   elements.btnResetHistory.addEventListener('click', () => {
     localStorage.removeItem('iqspark_seen_v2');
@@ -389,7 +414,7 @@ async function handleImageUpload(e, targetIdx) {
       // 2. Hand it to the revision sub-agent for a QA/completeness pass before it hits the template.
       let finalPuzzle = res;
       try {
-        finalPuzzle = await fetchClaudeRevisePuzzle(res, 'Puzzle extracted from a user-uploaded screenshot; verify the rule, answer, and 4 options.');
+        finalPuzzle = await fetchClaudeRevisePuzzle(res, 'Puzzle extracted from a user-uploaded screenshot; verify the rule, answer, and 4 options.', state.puzzleMode);
         console.log(`✨ Revision agent polished slot ${slot}.`, finalPuzzle);
       } catch (revErr) {
         console.warn(`Revision agent skipped for slot ${slot} (using raw extraction):`, revErr.message);
@@ -608,7 +633,7 @@ async function applyCustomTextPuzzle(slot) {
     const context = local.success
       ? `User typed a stacked-equation puzzle. A local solver derived answer=${local.answer} using rule "${local.ruleName}". Verify and produce 4 real numeric options.`
       : `User typed a puzzle that is NOT a simple equation grid. Infer the intended rule and rebuild it cleanly.`;
-    const revised = await fetchClaudeRevisePuzzle(draft, context);
+    const revised = await fetchClaudeRevisePuzzle(draft, context, state.puzzleMode);
     if (prompt) revised.prompt = prompt; // preserve the user's own prompt wording
     state.customManager.setCustomRebuiltPuzzle(slot, revised);
     msgEl.textContent = `✅ Applied (QA-verified). Answer: ${revised.answer}`;
@@ -652,7 +677,7 @@ async function extractImagePuzzle(file) {
   const res = await fetchClaudeVisionRebuilder(base64Data, file.type);
   let finalPuzzle = res;
   try {
-    finalPuzzle = await fetchClaudeRevisePuzzle(res, 'Puzzle extracted from a user-uploaded screenshot; verify the rule, answer, and 4 options.');
+    finalPuzzle = await fetchClaudeRevisePuzzle(res, 'Puzzle extracted from a user-uploaded screenshot; verify the rule, answer, and 4 options.', state.puzzleMode);
   } catch (revErr) {
     console.warn('Revision agent skipped (using raw extraction):', revErr.message);
   }
