@@ -1,5 +1,6 @@
 import { fetchClaudeDailyPuzzle, generateLocalSeededPuzzle, fetchClaudeVisionRebuilder, fetchClaudeRevisePuzzle, fetchClaudeTopHooks, markAsSeen, isAlreadySeen, puzzleSignature } from './js/iq-engine';
 import { generateViralSeededPuzzle, validateViralPuzzle, repairViralSlot } from './js/viral-engine';
+import { generateIqTestSeededPuzzle } from './js/iqtest-engine';
 import { getDailyCTA } from './js/cta-copy';
 import { AudioClipProcessor } from './js/audio-clip';
 import { solveEquationPuzzle } from './js/logic-solver';
@@ -197,43 +198,54 @@ async function loadDailyPuzzle(navigateToQuestion = false) {
 
   let puzzle = null;
   let lastErr = null;
-  // Attempt 0 uses the date seed + web_search (best quality, but slow). If that content was
-  // already shown (same-date reload), retries use a randomized seed WITHOUT web_search so they
-  // return a different puzzle fast — no more stacking several slow searches in a row.
-  const MAX_ATTEMPTS = 3;
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const trySeed = attempt === 0 ? seed : `${seed}_r${attempt}_${Math.random().toString(36).slice(2, 8)}`;
-    try {
-      // viral mode is fully generated (no web_search needed); rigorous mode searches on the first try.
-      const p = await fetchClaudeDailyPuzzle(trySeed, state.puzzleMode !== 'viral' && attempt === 0, state.puzzleMode);
-      // Defensibility net: if Claude's viral puzzle isn't provably unique, swap that slot for a
-      // deterministic rule-family puzzle (unique by construction) so the pinned answer is safe.
-      if (state.puzzleMode === 'viral' && p) {
-        if (!validateViralPuzzle(p.q1)) { p.q1 = repairViralSlot('q1', trySeed); console.warn('⚠️ Q1 viral puzzle was ambiguous — replaced with deterministic rule-family puzzle.'); }
-        if (!validateViralPuzzle(p.q2)) { p.q2 = repairViralSlot('q2', trySeed); console.warn('⚠️ Q2 viral puzzle was ambiguous — replaced with deterministic rule-family puzzle.'); }
-      }
-      puzzle = p; // latest Claude candidate
-      if (isFreshPair(p) || attempt === MAX_ATTEMPTS - 1) break;
-    } catch (err) {
-      lastErr = err;
-      console.warn('⚠️ Claude fetch failed — falling back to offline. Reason:', err.message);
-      break; // keep any earlier Claude candidate; if none, offline below
-    }
-  }
-
   let source;
-  if (puzzle) {
-    source = 'claude';
-    console.log('✨ Daily puzzle generated live via Claude Opus 4.8 API!', puzzle);
-  } else {
-    // Offline last resort — pick a non-repeating pair. In viral mode the deterministic viral
-    // rule-family generator mirrors the online style; rigorous mode uses the Mensa pool.
-    const offlineGen = state.puzzleMode === 'viral' ? generateViralSeededPuzzle : generateLocalSeededPuzzle;
+
+  if (state.puzzleMode === 'iqtest') {
+    // IQ Test mode is rule-based & deterministic — it reproduces the iqspark.digital question
+    // logics exactly and varies only the numbers/shapes by date seed. No network, no deviation.
     for (let i = 0; i < 40; i++) {
-      puzzle = offlineGen(i === 0 ? seed : `${seed}_off${i}`);
+      puzzle = generateIqTestSeededPuzzle(i === 0 ? seed : `${seed}_v${i}`);
       if (isFreshPair(puzzle)) break;
     }
-    source = 'offline';
+    source = 'iqtest';
+  } else {
+    // Attempt 0 uses the date seed + web_search (best quality, but slow). If that content was
+    // already shown (same-date reload), retries use a randomized seed WITHOUT web_search so they
+    // return a different puzzle fast — no more stacking several slow searches in a row.
+    const MAX_ATTEMPTS = 3;
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const trySeed = attempt === 0 ? seed : `${seed}_r${attempt}_${Math.random().toString(36).slice(2, 8)}`;
+      try {
+        // viral mode is fully generated (no web_search needed); rigorous mode searches on the first try.
+        const p = await fetchClaudeDailyPuzzle(trySeed, state.puzzleMode !== 'viral' && attempt === 0, state.puzzleMode);
+        // Defensibility net: if Claude's viral puzzle isn't provably unique, swap that slot for a
+        // deterministic rule-family puzzle (unique by construction) so the pinned answer is safe.
+        if (state.puzzleMode === 'viral' && p) {
+          if (!validateViralPuzzle(p.q1)) { p.q1 = repairViralSlot('q1', trySeed); console.warn('⚠️ Q1 viral puzzle was ambiguous — replaced with deterministic rule-family puzzle.'); }
+          if (!validateViralPuzzle(p.q2)) { p.q2 = repairViralSlot('q2', trySeed); console.warn('⚠️ Q2 viral puzzle was ambiguous — replaced with deterministic rule-family puzzle.'); }
+        }
+        puzzle = p; // latest Claude candidate
+        if (isFreshPair(p) || attempt === MAX_ATTEMPTS - 1) break;
+      } catch (err) {
+        lastErr = err;
+        console.warn('⚠️ Claude fetch failed — falling back to offline. Reason:', err.message);
+        break; // keep any earlier Claude candidate; if none, offline below
+      }
+    }
+
+    if (puzzle) {
+      source = 'claude';
+      console.log('✨ Daily puzzle generated live via Claude Opus 4.8 API!', puzzle);
+    } else {
+      // Offline last resort — pick a non-repeating pair. In viral mode the deterministic viral
+      // rule-family generator mirrors the online style; rigorous mode uses the Mensa pool.
+      const offlineGen = state.puzzleMode === 'viral' ? generateViralSeededPuzzle : generateLocalSeededPuzzle;
+      for (let i = 0; i < 40; i++) {
+        puzzle = offlineGen(i === 0 ? seed : `${seed}_off${i}`);
+        if (isFreshPair(puzzle)) break;
+      }
+      source = 'offline';
+    }
   }
 
   state.dailyPuzzle = puzzle;
@@ -673,6 +685,7 @@ function setGenSource(mode, err) {
   const map = {
     loading: { html: '<i class="fa-solid fa-circle-notch fa-spin"></i> Generating via Claude Opus 4.8…', color: 'var(--text-dim)' },
     claude:  { html: '✨ Live · Claude Opus 4.8', color: 'var(--green)' },
+    iqtest:  { html: '🧩 IQ Test · rule-based (daily variation)', color: 'var(--green)' },
     offline: { html: `⚠️ Offline — ${reason}`, color: 'var(--gold)' }
   };
   const s = map[mode] || map.loading;
@@ -680,11 +693,12 @@ function setGenSource(mode, err) {
   elements.genSource.style.color = s.color;
 
   // On a terminal state, pulse the badge + toast so it's clear generation finished.
-  if (mode === 'claude' || mode === 'offline') {
+  if (mode === 'claude' || mode === 'offline' || mode === 'iqtest') {
     elements.genSource.classList.remove('gen-done');
     void elements.genSource.offsetWidth; // reflow so the animation can restart
     elements.genSource.classList.add('gen-done');
     if (mode === 'claude') showToast("✅ Today's puzzles are ready!", 'ok');
+    else if (mode === 'iqtest') showToast("✅ Today's IQ Test set is ready!", 'ok');
     else showToast(`⚠️ Using offline puzzles — ${reason}`, 'warn');
   }
 }
