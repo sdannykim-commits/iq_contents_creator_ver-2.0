@@ -38,18 +38,22 @@ export function fitFrame(frameId) {
   const qd = frame.querySelector('.q-display');
   const puz = frame.querySelector('.eq-lines, .series, .matrix-grid, .analogy');
   if (qd && puz) {
-    puz.style.setProperty('--fit', '1');
-    const avail = qd.clientHeight;
+    puz.style.setProperty('--fit', '1');            // measure at full size first
     // scrollHeight EXCLUDES the element's own vertical margins (e.g. .eq-lines has margin:20px 0),
     // so add them back — otherwise a puzzle can be measured ~40px short and overflow/clip a whole
     // row (the missing margin ≈ one equation line). Margins scale with --fit, measured here at 1.
     const cs = getComputedStyle(puz);
     const margins = (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
-    const natural = puz.scrollHeight + margins;  // reading forces reflow → reflects --fit:1
-    let fit = 1;
-    if (natural > 0 && avail > 0 && natural > avail) {
-      fit = Math.max(MIN_FIT, (avail / natural) * 0.95); // 0.95 = small breathing room
-    }
+    const availH = qd.clientHeight;
+    const availW = qd.clientWidth;
+    const naturalH = puz.scrollHeight + margins;    // reading forces reflow → reflects --fit:1
+    const naturalW = puz.scrollWidth;               // widest single-line row (eq-lines are nowrap)
+    // Scale by BOTH axes so long rows (e.g. "12 + 8 = 104") shrink instead of clipping/wrapping,
+    // and tall stacks shrink instead of overflowing. Use the tighter of the two ratios.
+    const ratioH = naturalH > availH && availH > 0 ? availH / naturalH : 1;
+    const ratioW = naturalW > availW && availW > 0 ? availW / naturalW : 1;
+    const ratio = Math.min(ratioH, ratioW);
+    const fit = ratio < 1 ? Math.max(MIN_FIT, ratio * 0.95) : 1; // 0.95 = small breathing room
     puz.style.setProperty('--fit', fit.toFixed(3));
   }
 

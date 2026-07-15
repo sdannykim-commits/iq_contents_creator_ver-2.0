@@ -452,7 +452,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .analogy .q { color: var(--gold); border-color: var(--gold); background: rgba(255, 203, 61, 0.16); }
 
 .eq-lines { display: flex; flex-direction: column; gap: calc(14px * var(--fit, 1)); width: 100%; align-items: center; margin: calc(20px * var(--fit, 1)) 0; }
-.eq-lines .eq-line { font-size: calc(34px * var(--fit, 1)); font-weight: 900; text-align: center; letter-spacing: calc(2px * var(--fit, 1)); color: #fff; }
+.eq-lines .eq-line { font-size: calc(34px * var(--fit, 1)); font-weight: 900; text-align: center; letter-spacing: calc(2px * var(--fit, 1)); color: #fff; white-space: nowrap; }
 .eq-lines .eq-line:last-child { color: var(--gold) !important; font-size: calc(38px * var(--fit, 1)); font-weight: 900; text-shadow: 0 0 15px rgba(255, 203, 61, 0.45); }
 
 
