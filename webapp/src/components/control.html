@@ -66,107 +66,60 @@
   </div>
 </section>
 
-<!-- ============ STEP 3 · REPLACE WITH YOUR OWN IMAGE (auto-extracted) ============ -->
-<section class="attach-panel" aria-label="Attach puzzle images">
-  <div class="ap-head">
-    <span class="ap-title"><i class="fa-solid fa-paperclip"></i> Step 3 · Don't like it? Insert your own puzzle image</span>
-    <span class="ap-note">Upload <b>File 1 → Question 1</b> and/or <b>File 2 → Question 2</b> as JPG/PNG.
-      Claude Vision <b>extracts only the puzzle</b> and rebuilds it into the IQ Spark template
-      (raw screenshots are never shown). Takes priority over the auto-generated question.</span>
+<!-- ============ STEP 3 · REPLACE WITH YOUR OWN (image primary, or type) ============ -->
+<section class="custom-panel" aria-label="Replace questions with your own puzzle">
+  <div class="cp-head">
+    <span class="cp-title"><i class="fa-solid fa-paperclip"></i> Step 3 · Don't like it? Replace Q1 and/or Q2 with your own</span>
+    <span class="cp-note">Insert a <b>JPG/PNG</b> — Claude Vision <b>extracts only the puzzle</b> and rebuilds it into the IQ Spark template (raw screenshots are never shown) — <b>or type</b> a puzzle. Fill just Q1, just Q2, or both. Overrides the auto-generated question.</span>
   </div>
 
   <div class="ap-grid">
-    <!-- FILE 1 -> QUESTION 1 -->
+    <!-- SLOT 0 -> QUESTION 1 -->
     <article class="ap-slot" data-slot="0">
-      <div class="ap-slot-title">📎 File 1 → <b>Question 1</b></div>
+      <div class="ap-slot-title">🧩 <b>Question 1</b></div>
       <div class="ap-thumb" id="apThumb0"><i class="fa-regular fa-image"></i><span>No image</span></div>
-      <input type="file" id="apFile0" accept="image/png, image/jpeg">
-      <input type="text" id="apPrompt0" placeholder="Prompt (optional) e.g. Only 2% can solve this…">
-      <input type="text" id="apChoices0" placeholder="Choices (optional) e.g. 10, 8, 4, 9 (first = correct)">
-      <button class="btn btn-ghost ap-clear" id="apClear0" style="display:none;">
-        <i class="fa-solid fa-xmark"></i> Remove File 1
-      </button>
+      <label for="customImage0"><b>A) Insert a puzzle image (JPG/PNG)</b></label>
+      <input type="file" id="customImage0" accept="image/png, image/jpeg">
+
+      <div class="cp-or">— or —</div>
+
+      <label for="customText0"><b>B) Type a puzzle</b></label>
+      <input type="text" id="customPrompt0" placeholder="Hook / prompt (optional) e.g. Only 2% can solve this…">
+      <textarea id="customText0" rows="3" placeholder="10 + 1 = 11&#10;20 + 2 = 35&#10;30 + 3 = ?"></textarea>
+      <button class="btn btn-primary" id="btnApplyCustomText0" style="margin-top: 8px;"><i class="fa-solid fa-check"></i> Apply text puzzle</button>
+
+      <div class="cp-foot" style="margin-top: 10px;">
+        <button class="btn btn-ghost" id="btnResetCustom0"><i class="fa-solid fa-rotate-left"></i> Reset Q1 to auto</button>
+        <span class="cp-msg" id="customMsg0">Using the auto-generated puzzle.</span>
+      </div>
     </article>
 
-    <!-- FILE 2 -> QUESTION 2 -->
+    <!-- SLOT 1 -> QUESTION 2 -->
     <article class="ap-slot" data-slot="1">
-      <div class="ap-slot-title">📎 File 2 → <b>Question 2</b></div>
+      <div class="ap-slot-title">🧩 <b>Question 2</b></div>
       <div class="ap-thumb" id="apThumb1"><i class="fa-regular fa-image"></i><span>No image</span></div>
-      <input type="file" id="apFile1" accept="image/png, image/jpeg">
-      <input type="text" id="apPrompt1" placeholder="Prompt (optional) e.g. 99% get this wrong…">
-      <input type="text" id="apChoices1" placeholder="Choices (optional) e.g. 12, 9, 6, 15 (first = correct)">
-      <button class="btn btn-ghost ap-clear" id="apClear1" style="display:none;">
-        <i class="fa-solid fa-xmark"></i> Remove File 2
-      </button>
+      <label for="customImage1"><b>A) Insert a puzzle image (JPG/PNG)</b></label>
+      <input type="file" id="customImage1" accept="image/png, image/jpeg">
+
+      <div class="cp-or">— or —</div>
+
+      <label for="customText1"><b>B) Type a puzzle</b></label>
+      <input type="text" id="customPrompt1" placeholder="Hook / prompt (optional) e.g. 99% get this wrong…">
+      <textarea id="customText1" rows="3" placeholder="9 = 90&#10;8 = 72&#10;7 = ?"></textarea>
+      <button class="btn btn-primary" id="btnApplyCustomText1" style="margin-top: 8px;"><i class="fa-solid fa-check"></i> Apply text puzzle</button>
+
+      <div class="cp-foot" style="margin-top: 10px;">
+        <button class="btn btn-ghost" id="btnResetCustom1"><i class="fa-solid fa-rotate-left"></i> Reset Q2 to auto</button>
+        <span class="cp-msg" id="customMsg1">Using the auto-generated puzzle.</span>
+      </div>
     </article>
   </div>
-  <p class="ap-hint">
-    💬 No choices? The card shows a <b>“drop your answer in the comments”</b> viral prompt (no answer reveal) —
-    great for maximizing engagement. Add choices to enable the answer-reveal frame.
-  </p>
 </section>
 
-<!-- ============ STEP 4 · MANUAL EQUATION PUZZLE (optional) ============ -->
-<section class="custom-panel" aria-label="Custom question 1 override">
-  <div class="cp-head">
-    <span class="cp-title"><i class="fa-solid fa-keyboard"></i> Step 4 · Replace Question 1 — type a puzzle or upload an image (optional)</span>
-    <span class="cp-note">Type any puzzle (equation, sequence, analogy) <b>or upload a puzzle image</b>. Either way, Claude Opus 4.8 extracts just the puzzle and rebuilds it into the template.</span>
-  </div>
-
-  <div class="field" style="margin-bottom: 12px;">
-    <label for="customPrompt0">Prompt (optional)</label>
-    <input type="text" id="customPrompt0" placeholder="Only 2% can solve this. What is 1 × 4 = ?">
-  </div>
-
-  <div class="cp-col">
-    <label for="customText0"><b>A) Type your puzzle (equation, sequence, analogy…)</b></label>
-    <textarea id="customText0" rows="4" placeholder="16 x 1 = 6&#10;4 x 2 = 12&#10;2 x 3 = 10&#10;1 x 4 = ?"></textarea>
-    <button class="btn btn-primary" id="btnApplyCustomText0" style="margin-top: 8px;"><i class="fa-solid fa-check"></i> Apply text puzzle</button>
-
-    <div class="cp-or">— or —</div>
-
-    <label for="customImage0"><b>B) Upload a puzzle image (JPG/PNG) — auto-extracted</b></label>
-    <input type="file" id="customImage0" accept="image/png, image/jpeg">
-  </div>
-
-  <div class="cp-foot" style="margin-top: 14px;">
-    <button class="btn btn-ghost" id="btnResetCustom0"><i class="fa-solid fa-rotate-left"></i> Reset Q1 to auto</button>
-    <span class="cp-msg" id="customMsg0">Pre-loaded with default values.</span>
-  </div>
-</section>
-
-<section class="custom-panel" aria-label="Custom question 2 override">
-  <div class="cp-head">
-    <span class="cp-title"><i class="fa-solid fa-keyboard"></i> Step 4 · Replace Question 2 — type a puzzle or upload an image (optional)</span>
-    <span class="cp-note">Type any puzzle (equation, sequence, analogy) <b>or upload a puzzle image</b>. Either way, Claude Opus 4.8 extracts just the puzzle and rebuilds it into the template.</span>
-  </div>
-
-  <div class="field" style="margin-bottom: 12px;">
-    <label for="customPrompt1">Prompt (optional)</label>
-    <input type="text" id="customPrompt1" placeholder="99% get this wrong. What is the logic?">
-  </div>
-
-  <div class="cp-col">
-    <label for="customText1"><b>A) Type your puzzle (equation, sequence, analogy…)</b></label>
-    <textarea id="customText1" rows="4" placeholder="16 x 1 = 6&#10;4 x 2 = 12&#10;2 x 3 = 10&#10;1 x 4 = ?"></textarea>
-    <button class="btn btn-primary" id="btnApplyCustomText1" style="margin-top: 8px;"><i class="fa-solid fa-check"></i> Apply text puzzle</button>
-
-    <div class="cp-or">— or —</div>
-
-    <label for="customImage1"><b>B) Upload a puzzle image (JPG/PNG) — auto-extracted</b></label>
-    <input type="file" id="customImage1" accept="image/png, image/jpeg">
-  </div>
-
-  <div class="cp-foot" style="margin-top: 14px;">
-    <button class="btn btn-ghost" id="btnResetCustom1"><i class="fa-solid fa-rotate-left"></i> Reset Q2 to auto</button>
-    <span class="cp-msg" id="customMsg1">Pre-loaded with default values.</span>
-  </div>
-</section>
-
-<!-- ============ STEP 5 · HOOK GENERATOR ============ -->
+<!-- ============ STEP 4 · HOOK GENERATOR ============ -->
 <section class="hook-panel" aria-label="Hook headline generator">
   <div class="hp-head">
-    <span class="hp-title"><i class="fa-solid fa-bolt"></i> Step 5 · Hook Generator — top headline (CTA &amp; algorithm booster)</span>
+    <span class="hp-title"><i class="fa-solid fa-bolt"></i> Step 4 · Hook Generator — top headline (CTA &amp; algorithm booster)</span>
     <span class="hp-note">Generate scroll-stopping top hooks engineered for the Shorts algorithm, then apply with one click.</span>
   </div>
   <div class="hp-row">

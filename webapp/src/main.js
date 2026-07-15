@@ -56,17 +56,8 @@ const elements = {
   datePick: document.getElementById('datePick'),
   btnResetHistory: document.getElementById('btnResetHistory'),
 
-  // Attach Puzzle Images
-  apFile0: document.getElementById('apFile0'),
-  apPrompt0: document.getElementById('apPrompt0'),
-  apChoices0: document.getElementById('apChoices0'),
-  apClear0: document.getElementById('apClear0'),
+  // Step 3 image-upload thumbnails (one per slot; the image lives in the merged Replace panel)
   apThumb0: document.getElementById('apThumb0'),
-  
-  apFile1: document.getElementById('apFile1'),
-  apPrompt1: document.getElementById('apPrompt1'),
-  apChoices1: document.getElementById('apChoices1'),
-  apClear1: document.getElementById('apClear1'),
   apThumb1: document.getElementById('apThumb1'),
 
   // Hook Generator
@@ -283,11 +274,9 @@ async function generateInitialHooks() {
 function setupEventListeners() {
   // New Set / Date Change / History Reset
   elements.btnNew.addEventListener('click', () => {
-    // Clear both override paths so they don't block the newly generated question preview!
-    clearPriorityUpload(0);
-    clearPriorityUpload(1);
-    resetReplaceSectionFields('q1', 'New question set — override cleared.');
-    resetReplaceSectionFields('q2', 'New question set — override cleared.');
+    // Clear both slot overrides so they don't block the newly generated question preview!
+    clearSlotOverride(0, 'New question set — override cleared.', false);
+    clearSlotOverride(1, 'New question set — override cleared.', false);
 
     state.shuffleOffset++;
     hintAddMusicIfMissing();
@@ -304,10 +293,8 @@ function setupEventListeners() {
     elements.puzzleMode.value = state.puzzleMode;
     elements.puzzleMode.addEventListener('change', () => {
       state.puzzleMode = elements.puzzleMode.value;
-      clearPriorityUpload(0);
-      clearPriorityUpload(1);
-      resetReplaceSectionFields('q1', 'Puzzle style changed — override cleared.');
-      resetReplaceSectionFields('q2', 'Puzzle style changed — override cleared.');
+      clearSlotOverride(0, 'Puzzle style changed — override cleared.', false);
+      clearSlotOverride(1, 'Puzzle style changed — override cleared.', false);
       loadDailyPuzzle(true);
     });
   }
@@ -317,13 +304,6 @@ function setupEventListeners() {
     localStorage.removeItem('iqspark_seen_v1'); // clear legacy id-based history too
     alert("Never-repeat signature history cleared successfully! 🧹");
   });
-
-  // Attach Puzzle Images (Step 1)
-  elements.apFile0.addEventListener('change', (e) => handleImageUpload(e, 0));
-  elements.apFile1.addEventListener('change', (e) => handleImageUpload(e, 1));
-  
-  elements.apClear0.addEventListener('click', () => clearPriorityUpload(0));
-  elements.apClear1.addEventListener('click', () => clearPriorityUpload(1));
 
   // Hook generator - Claude Opus 4.8 Real-time integration
   elements.btnGenHooks.addEventListener('click', async () => {
@@ -352,16 +332,16 @@ function setupEventListeners() {
     }
   });
 
-  // Custom Override Q1/Q2 Actions (manual equation puzzle only —
-  // image insertion is handled by the "Attach Puzzle Images" Vision path,
-  // which extracts the puzzle into the template instead of pasting a raw image).
+  // Step 3 · per-slot override actions — each slot (Q1/Q2) can be replaced by an
+  // inserted image (Vision-extracted into the template) OR a typed puzzle; both write
+  // the same slot override, and the Reset button restores the auto-generated puzzle.
   elements.btnApplyCustomText0.addEventListener('click', () => applyCustomTextPuzzle('q1'));
   elements.customImage0.addEventListener('change', (e) => applyCustomImagePuzzle(e, 'q1'));
-  elements.btnResetCustom0.addEventListener('click', () => resetSingleOverride('q1'));
+  elements.btnResetCustom0.addEventListener('click', () => clearSlotOverride(0, 'Q1 reset to automatic.'));
 
   elements.btnApplyCustomText1.addEventListener('click', () => applyCustomTextPuzzle('q2'));
   elements.customImage1.addEventListener('change', (e) => applyCustomImagePuzzle(e, 'q2'));
-  elements.btnResetCustom1.addEventListener('click', () => resetSingleOverride('q2'));
+  elements.btnResetCustom1.addEventListener('click', () => clearSlotOverride(1, 'Q2 reset to automatic.'));
 
   // Playback & Navigation Controls (Modular Calls)
   elements.btnPlay.addEventListener('click', () => startAutoPlay(state, elements, playAudioPreview, stopAudioPreview, updateStepLabel));
@@ -384,126 +364,34 @@ function setupEventListeners() {
   elements.btnStopMusic.addEventListener('click', stopAudioPreview);
 }
 
-// ── Upload Handlers (Step 1 Priority Slots) ──────────
-async function handleImageUpload(e, targetIdx) {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  const slot = targetIdx === 0 ? 'q1' : 'q2';
-  const thumb = targetIdx === 0 ? elements.apThumb0 : elements.apThumb1;
-  const clearBtn = targetIdx === 0 ? elements.apClear0 : elements.apClear1;
-  
-  // Show loading indicator
-  thumb.classList.add('has-img');
-  thumb.innerHTML = `<span class="loading-vision" style="font-size: 11px; font-weight: 700; color: var(--brand);">🤖 Extracting + QA…</span>`;
-  clearBtn.style.display = 'inline-flex';
-  hintAddMusicIfMissing();
+// ── Step 3 slot helpers (merged "Replace with your own" panel) ──────────────
+// One slot owns each question (Q1=idx0, Q2=idx1). Each slot has an image path and
+// a type path; both write the same override, so there is only ever one owner and
+// no cross-section reset plumbing is needed.
 
-  const reader = new FileReader();
-  reader.onload = async (event) => {
-    const dataUrl = event.target.result;
-    
-    // Extract base64 clean data (strip "data:image/png;base64," prefix)
-    const base64Data = dataUrl.split(',')[1];
-    
-    try {
-      // 1. Try to invoke Claude Vision API to parse logic and rebuild into template text/grid!
-      const res = await fetchClaudeVisionRebuilder(base64Data, file.type);
-      console.log(`🤖 Extracted custom slot ${slot} from image.`, res);
-
-      // 2. Hand it to the revision sub-agent for a QA/completeness pass before it hits the template.
-      let finalPuzzle = res;
-      try {
-        finalPuzzle = await fetchClaudeRevisePuzzle(res, 'Puzzle extracted from a user-uploaded screenshot; verify the rule, answer, and 4 options.', state.puzzleMode);
-        console.log(`✨ Revision agent polished slot ${slot}.`, finalPuzzle);
-      } catch (revErr) {
-        console.warn(`Revision agent skipped for slot ${slot} (using raw extraction):`, revErr.message);
-      }
-
-      state.customManager.setCustomRebuiltPuzzle(slot, finalPuzzle);
-
-      // Update Thumbnail with a success checkmark
-      thumb.innerHTML = `<div class="rebuilt-badge" style="position:absolute; top: 8px; left: 8px; background: var(--brand-2); padding: 4px 8px; font-size: 10px; border-radius: 4px; font-weight: 800; color: #fff;">✅ Rebuilt + QA</div><img src="${dataUrl}" style="opacity: 0.35; width: 100%; height: 100%; object-fit: contain;" />`;
-    } catch (err) {
-      // 2. Safe Fallback: If API fails, build manual template puzzle instantly instead of showing raw image!
-      console.warn("⚠️ Vision reconstruction failed. Inserting fallback template rule. Reason:", err.message);
-      
-      const prompt = targetIdx === 0 ? elements.apPrompt0.value : elements.apPrompt1.value;
-      const choices = targetIdx === 0 ? elements.apChoices0.value : elements.apChoices1.value;
-      buildManualTemplatePuzzle(slot, prompt, choices, targetIdx);
-      
-      // Show checkmark to indicate it was successfully rebuilt into our template style
-      thumb.innerHTML = `<div class="rebuilt-badge" style="position:absolute; top: 8px; left: 8px; background: var(--gold); padding: 4px 8px; font-size: 10px; border-radius: 4px; font-weight: 800; color: #000;">⚡ Template</div><img src="${dataUrl}" style="opacity: 0.25; width: 100%; height: 100%; object-fit: contain;" />`;
-    }
-    
-    // This slot's override now comes from the attached image — clear any stale
-    // state left in the "Replace Question X" section so the two paths don't
-    // silently fight over the same slot.
-    resetReplaceSectionFields(slot, 'Using the attached puzzle image instead.');
-
-    // Re-generate carousel preview frame visual cards
-    generateFrames(state, elements, updateStepLabel);
-  };
-  reader.readAsDataURL(file);
-}
-
-// Help resolve custom inputs or fallback logic into clean text/grid template structures (No raw image rendering)
-function buildManualTemplatePuzzle(slot, promptText, choicesStr, targetIdx) {
-  // If prompt has equation characters (e.g. 10 + 1 = 11), map it as text equation rows!
-  if (promptText && (promptText.includes('\n') || promptText.includes('='))) {
-    state.customManager.setCustomRebuiltPuzzle(slot, {
-      kind: 'text',
-      type: 'text',
-      prompt: targetIdx === 0 ? 'Can you solve this puzzle?' : 'Find the hidden logical rule.',
-      options: choicesStr ? choicesStr.split(',').map(c => c.trim()) : ['A', 'B', 'C', 'D'],
-      answer: choicesStr ? choicesStr.split(',')[0].trim() : 'A',
-      explanation: 'Rebuilt based on manual equations.',
-      equation: promptText
-    });
-  } else {
-    // Else, pull clean matrix/series templates from local seeded pool and patch choices/answers
-    const dateStr = elements.datePick.value || new Date().toISOString().split('T')[0];
-    const seed = `${dateStr}_fallback_${slot}_offset_${state.shuffleOffset}`;
-    const fallbackBase = generateLocalSeededPuzzle(seed)[slot];
-    
-    const userChoices = choicesStr ? choicesStr.split(',').map(c => c.trim()) : null;
-    
-    state.customManager.setCustomRebuiltPuzzle(slot, {
-      kind: fallbackBase.kind || (fallbackBase.type === 'matrix' ? 'matrix' : fallbackBase.type === 'numerical' ? 'numerical' : 'text'),
-      type: fallbackBase.type,
-      prompt: promptText || fallbackBase.prompt,
-      options: userChoices || fallbackBase.options,
-      answer: userChoices ? userChoices[0] : fallbackBase.answer,
-      explanation: fallbackBase.explanation,
-      equation: fallbackBase.equation,
-      matrixData: fallbackBase.matrixData,
-      sequenceData: fallbackBase.sequenceData,
-      analogyData: fallbackBase.analogyData
-    });
-  }
-}
-
-
-// DOM-only reset of the "Attach Your Puzzle Images" thumbnail/file input for one slot.
-// Does NOT touch the override itself — used both by clearPriorityUpload (which does
-// clear the override) and by the "Replace Question X" section when it takes over the
-// same slot, so the two override paths never show a stale confirmation state at once.
-function resetAttachSectionFields(targetIdx) {
-  const thumb = targetIdx === 0 ? elements.apThumb0 : elements.apThumb1;
+// DOM-only: reset a slot's image thumbnail back to the empty state.
+function resetSlotThumb(idx) {
+  const thumb = idx === 0 ? elements.apThumb0 : elements.apThumb1;
   thumb.classList.remove('has-img');
   thumb.innerHTML = `<i class="fa-regular fa-image"></i><span>No image</span>`;
-
-  const fileInput = targetIdx === 0 ? elements.apFile0 : elements.apFile1;
-  fileInput.value = '';
-
-  const clearBtn = targetIdx === 0 ? elements.apClear0 : elements.apClear1;
-  clearBtn.style.display = 'none';
 }
 
-function clearPriorityUpload(targetIdx) {
-  resetAttachSectionFields(targetIdx);
-  state.customManager.clearOverride(targetIdx === 0 ? 'q1' : 'q2');
-  generateFrames(state, elements, updateStepLabel);
+// DOM-only: clear a slot's inputs (prompt, text, image, thumbnail) + set its status.
+function resetSlotFields(idx, message) {
+  const isQ1 = idx === 0;
+  (isQ1 ? elements.customPrompt0 : elements.customPrompt1).value = '';
+  (isQ1 ? elements.customText0 : elements.customText1).value = '';
+  (isQ1 ? elements.customImage0 : elements.customImage1).value = '';
+  (isQ1 ? elements.customMsg0 : elements.customMsg1).textContent = message || 'Using the auto-generated puzzle.';
+  resetSlotThumb(idx);
+}
+
+// Full clear: drop the override + reset the slot's fields. Re-renders unless told not to
+// (btnNew / mode-toggle pass render=false because loadDailyPuzzle re-renders right after).
+function clearSlotOverride(idx, message, render = true) {
+  state.customManager.clearOverride(idx === 0 ? 'q1' : 'q2');
+  resetSlotFields(idx, message);
+  if (render) generateFrames(state, elements, updateStepLabel);
 }
 
 
@@ -658,9 +546,9 @@ async function applyCustomTextPuzzle(slot) {
   }
 
   applyBtn.disabled = false;
-  // This slot's override now comes from this section — clear a stale attached
-  // image in the other section so it doesn't look like it's still active.
-  resetAttachSectionFields(isQ1 ? 0 : 1);
+  // Typed puzzle now owns this slot — clear the image thumbnail/input for the same slot.
+  resetSlotThumb(isQ1 ? 0 : 1);
+  (isQ1 ? elements.customImage0 : elements.customImage1).value = '';
   generateFrames(state, elements, updateStepLabel);
 }
 
@@ -684,56 +572,49 @@ async function extractImagePuzzle(file) {
   return finalPuzzle;
 }
 
-// Step 4 · option B — upload a puzzle image for this slot. Same extraction as Step 3, but
-// scoped to the Replace-Question section: on success it clears this slot's typed text and the
-// Step-3 attach thumbnail so the three override paths never fight over the same question.
+// Step 3 · option A — insert a puzzle image for this slot. Claude Vision extracts ONLY the
+// puzzle and rebuilds it into the template; the thumbnail shows a faded preview + a badge, and
+// the image takes over the slot (its typed prompt/text is cleared).
 async function applyCustomImagePuzzle(e, slot) {
   const file = e.target.files[0];
   if (!file) return;
   const isQ1 = slot === 'q1';
+  const idx = isQ1 ? 0 : 1;
   const msgEl = isQ1 ? elements.customMsg0 : elements.customMsg1;
   const imgInput = isQ1 ? elements.customImage0 : elements.customImage1;
+  const thumb = idx === 0 ? elements.apThumb0 : elements.apThumb1;
 
+  // Best-effort faded preview + loading state.
+  let dataUrl = '';
+  try {
+    dataUrl = await new Promise((res, rej) => {
+      const rd = new FileReader();
+      rd.onload = (ev) => res(ev.target.result);
+      rd.onerror = () => rej(new Error('Could not read the image file.'));
+      rd.readAsDataURL(file);
+    });
+  } catch (_) { /* preview is optional */ }
+  thumb.classList.add('has-img');
+  thumb.innerHTML = `<span class="loading-vision" style="font-size: 11px; font-weight: 700; color: var(--brand);">🤖 Extracting + QA…</span>`;
   msgEl.textContent = '🤖 Extracting the puzzle from your image + QA…';
+  hintAddMusicIfMissing();
+
   try {
     const puzzle = await extractImagePuzzle(file);
     state.customManager.setCustomRebuiltPuzzle(slot, puzzle);
     msgEl.textContent = `✅ Image extracted into template. Answer: ${puzzle.answer}`;
-    // This slot now comes from the uploaded image — clear the typed text + Step 3 thumbnail.
+    // Image now owns this slot — clear the typed prompt/text for the same slot.
     (isQ1 ? elements.customText0 : elements.customText1).value = '';
-    resetAttachSectionFields(isQ1 ? 0 : 1);
+    (isQ1 ? elements.customPrompt0 : elements.customPrompt1).value = '';
+    thumb.innerHTML = `<div class="rebuilt-badge" style="position:absolute; top: 8px; left: 8px; background: var(--brand-2); padding: 4px 8px; font-size: 10px; border-radius: 4px; font-weight: 800; color: #fff;">✅ Rebuilt + QA</div><img src="${dataUrl}" style="opacity: 0.35; width: 100%; height: 100%; object-fit: contain;" />`;
     generateFrames(state, elements, updateStepLabel);
   } catch (err) {
-    console.warn('Step 4 image extraction failed:', err.message);
+    console.warn('Step 3 image extraction failed:', err.message);
     msgEl.textContent = `⚠️ Couldn't extract from image (${err.message}). Try a clearer image or the text box.`;
+    resetSlotThumb(idx);
   } finally {
     imgInput.value = ''; // allow re-uploading the same file
   }
-}
-
-// DOM-only reset of the "Replace Question X with Your Own Puzzle" (manual equation) section
-// for one slot. Does NOT touch the override itself — used both by resetSingleOverride (which
-// does clear the override) and by the "Attach Your Puzzle Images" section when it takes over
-// the same slot, so the two override paths never show a stale confirmation state at once.
-function resetReplaceSectionFields(slot, message) {
-  const isQ1 = slot === 'q1';
-  if (isQ1) {
-    elements.customPrompt0.value = '';
-    elements.customText0.value = '';
-    elements.customImage0.value = '';
-    elements.customMsg0.textContent = message || 'Q1 reset to automatic.';
-  } else {
-    elements.customPrompt1.value = '';
-    elements.customText1.value = '';
-    elements.customImage1.value = '';
-    elements.customMsg1.textContent = message || 'Q2 reset to automatic.';
-  }
-}
-
-function resetSingleOverride(slot) {
-  state.customManager.clearOverride(slot);
-  resetReplaceSectionFields(slot);
-  generateFrames(state, elements, updateStepLabel);
 }
 
 // ── Hook Generator Render ──
