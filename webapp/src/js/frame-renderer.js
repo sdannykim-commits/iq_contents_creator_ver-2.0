@@ -91,17 +91,17 @@ export function generateFrames(state, elements, updateStepLabel) {
   
   // Render Frame 2 (Q1 Problem)
   elements.promptQ1.textContent = displayPrompt(q1);
-  renderFrameQuestion(q1, elements.frame2ImgContainer, elements.frame2Img, elements.frame2TextPuzzle, elements.frame2OptionsContainer);
+  renderFrameQuestion(q1, elements.frame2ImgContainer, elements.frame2TextPuzzle, elements.frame2OptionsContainer);
   
   // Render Frame 3 (A1 Answer Reveal) & Rotate Reveal Hook Copy!
-  renderFrameQuestion(q1, elements.frame3ImgContainer, elements.frame3Img, elements.frame3TextPuzzle, null);
+  renderFrameQuestion(q1, elements.frame3ImgContainer, elements.frame3TextPuzzle, null);
   elements.hookDisplayA1.textContent = state.cta.revealHook;
   elements.answerQ1Display.textContent = q1.answer;
   elements.explanationQ1Display.textContent = q1.explanation || '';
 
   // Render Frame 4 (Q2 Problem)
   elements.promptQ2.textContent = displayPrompt(q2);
-  renderFrameQuestion(q2, elements.frame4ImgContainer, elements.frame4Img, elements.frame4TextPuzzle, elements.frame4OptionsContainer);
+  renderFrameQuestion(q2, elements.frame4ImgContainer, elements.frame4TextPuzzle, elements.frame4OptionsContainer);
   
   // Check comment bait for Q2 & Rotate Engagement Line!
   const commBaitEl = document.querySelector('#frame-5 .comment-bait.big');
@@ -165,7 +165,7 @@ function shapeCellSvg(cell) {
 }
 
 // Renders individual question data onto its respective DOM fields
-export function renderFrameQuestion(q, imgCont, imgEl, txtEl, optCont) {
+export function renderFrameQuestion(q, imgCont, txtEl, optCont) {
   // Force 100% template-based text/grid component rendering. Never output raw screenshot images!
   imgCont.style.display = 'none';
   txtEl.style.display = 'flex';
@@ -175,13 +175,7 @@ export function renderFrameQuestion(q, imgCont, imgEl, txtEl, optCont) {
     txtEl.className = 'eq-lines';
     const rows = q.equation.split('\n').map(r => r.trim()).filter(r => r.length > 0);
     txtEl.innerHTML = rows.map(r => `<div class="eq-line">${r}</div>`).join('');
-  } 
-  else {
-
-
-    imgCont.style.display = 'none';
-    txtEl.style.display = 'flex';
-    
+  } else {
     if (q.type === 'matrix') {
       txtEl.className = 'matrix-grid';
       if (Array.isArray(q.matrixShapes) && q.matrixShapes.length >= 9) {

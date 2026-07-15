@@ -128,15 +128,12 @@ const elements = {
   explanationQ1Display: document.getElementById('explanation-q1-display'),
   
   frame2ImgContainer: document.getElementById('frame-2-img-container'),
-  frame2Img: document.getElementById('frame-2-img'),
   frame2TextPuzzle: document.getElementById('frame-2-text-puzzle'),
-  
+
   frame3ImgContainer: document.getElementById('frame-3-img-container'),
-  frame3Img: document.getElementById('frame-3-img'),
   frame3TextPuzzle: document.getElementById('frame-3-text-puzzle'),
-  
+
   frame4ImgContainer: document.getElementById('frame-4-img-container'),
-  frame4Img: document.getElementById('frame-4-img'),
   frame4TextPuzzle: document.getElementById('frame-4-text-puzzle'),
   
   frame2OptionsContainer: document.getElementById('frame-2-options-container'),
