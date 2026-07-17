@@ -298,6 +298,14 @@ Assemble PNG frames + music track inside your video editor.
 function puzzleToText(q) {
   if (q.equation) return q.equation.replace(/\n/g, '  |  ');
   if (q.sequenceData && q.sequenceData.length) return q.sequenceData.join(', ');
+  if (Array.isArray(q.matrixShapes) && q.matrixShapes.length >= 9) {
+    const cellText = (c) => {
+      if (!c || c.shape === '?' || !c.shape) return '?';
+      return `${c.shape}${c.fill ? '/' + c.fill : ''}${c.dot ? '/dot-' + c.dot : ''}`;
+    };
+    const m = q.matrixShapes.slice(0, 9).map(cellText);
+    return [m.slice(0, 3), m.slice(3, 6), m.slice(6, 9)].map(r => r.join(' ')).join('  /  ');
+  }
   if (q.matrixData && q.matrixData.length) {
     const m = q.matrixData;
     return [m.slice(0, 3), m.slice(3, 6), m.slice(6, 9)].map(r => r.join(' ')).join('  /  ');

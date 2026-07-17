@@ -141,7 +141,9 @@ export function startTimerForFrame(frameId, elements, state) {
 
   currentTimerInterval = setInterval(() => {
     timeLeft--;
-    if (timeLeft < 0) {
+    // Stop at 1 (never display 0) so the preview matches the MP4 countdown exactly: the
+    // question shows 24 → 1 and transitions to the answer the moment time is up.
+    if (timeLeft < 1) {
       clearInterval(currentTimerInterval);
       currentTimerInterval = null;
       return;
